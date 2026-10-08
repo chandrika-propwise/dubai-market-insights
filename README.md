@@ -6,6 +6,8 @@ The public dashboard now displays **September 2026 DLD-based figures supplied by
 
 ![Propwise September 2026 rentals preview](docs/september-2026-rentals-preview.png)
 
+![Propwise September 2026 rental value ranking](docs/september-2026-rental-values-preview.png)
+
 ![Propwise Apartments property filter preview](docs/september-2026-property-preview.png)
 
 ## Run and review
@@ -28,7 +30,7 @@ Open http://localhost:3000. The server binds to `0.0.0.0` for supported port for
 
 Reporting period: **1–30 September 2026**. Data available through **6 October 2026**. Underlying source as supplied: **DLD-registered transactions**. Provenance: the owner's summary in this conversation; no original DLD dataset or source screenshots have been ingested or independently verified.
 
-Select **Sales** or **Rentals**, then a location, or click an area row to inspect the available metrics. Rental chart tabs compare transaction counts or rental values across the supplied areas; sales retain the September overview. Switch the chart between transaction count and sales value, and switch area rankings between the supplied top 10 by volume and top 5 by value. Reset returns to the Dubai-wide overview.
+Select **Sales** or **Rentals**, then a location, or click an area row to inspect the available metrics. Rental chart tabs compare transaction counts or rental values across the supplied areas; sales retain the September overview. Switch the chart between transaction count and sales value, and switch area rankings between the supplied top 10 by volume and top 5 by sales value (top 10 by rental value). Reset returns to the Dubai-wide overview.
 
 - **Missing is not zero:** absent area values, counts, medians, and MoM comparisons remain null and display as `—`. Area medians are never estimated from Dubai-wide medians.
 - **Median is not average:** AED 1.325m is the median property price; AED 1,671 is the median price per square foot. The supplied 9.6% median-price increase is kept distinct from the unavailable median-per-sqft comparison.
@@ -37,7 +39,7 @@ Select **Sales** or **Rentals**, then a location, or click an area row to inspec
 - **Area coverage is partial:** rank fields preserve the supplied volume and value lists. Palm Jumeirah's 72 transactions are supplemental and do not imply an 11th-place volume rank. Al Yufrah 1 has a supplied sales value but no transaction count. Do not sum partial area rows as if they represent the entire market.
 - **Benchmarks have an explicit scope:** off-plan/ready, property shares, and yields are labeled Dubai-wide and do not change with an area selection. The sales property split now shows the supplied counts: apartments 8,952 (78%), villas/townhouses 972 (8.5%), land 695 (6.1%), commercial/other 856 (7.5%). Counts sum to 11,475; reported percentages total 100.1% because of rounding. Bars use counts, and labels retain the reported percentages.
 - **Property Type is selectable:** choose All property types, Apartments, Villas and townhouses, Land, Commercial and other, or Penthouse. Supplied sales category counts and reported shares update the KPIs and chart; category values and medians remain unavailable. Selecting a category returns Location to All Dubai; selecting an area clears the property filter. The property panel also has category buttons. Penthouse and rental property-type selections show an explicit unavailable-data state and disable CSV download; no allocation from apartments or partial rental lists is inferred. Developer filters remain disabled until source data is supplied.
-- **Rentals are a partial area leaderboard:** ten supplied area transaction counts and five rental values. Business Bay leads with 4,044 rental transactions and AED 387.6m. No Dubai-wide rental total is calculated from the partial list. Rental values and counts remain separate from sales, and sales medians/off-plan shares are hidden in the rental view. Switching transaction type preserves a shared selected area, otherwise returns to All Dubai.
+- **Rentals are a partial area leaderboard:** two supplied top-ten lists merged across 15 distinct areas: registered rental contract counts with all ten August comparisons, and ten rental values. Business Bay leads contract volume with 4,044 (+10.1%); Burj Khalifa leads value at AED 455.4m. Value-only areas keep contract counts and volume ranks unavailable. Al Khabaisi is +83.7%; Al Warsan 1 is −12.9%. No Dubai-wide rental total is calculated from the partial list. Rental values and counts remain separate from sales, and sales medians/off-plan shares are hidden in the rental view. Switching transaction type preserves a shared selected area, otherwise returns to All Dubai.
 - **Additional sales values:** Jebel Ali 1 AED 1.26bn, Wadi Al Safa 5 AED 859.3m, Al Hebiah 1 AED 826.5m, and Al Khairan 1 AED 1.10bn now populate area rows and exports. Original supplemental Palm Jumeirah and Al Yufrah 1 figures remain available.
 - **Yields are approximate and gross:** approximately 5% for apartments and 4.9% for villas; no townhouse, net, or area-specific yield is inferred.
 

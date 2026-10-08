@@ -98,8 +98,9 @@ test("rental area rankings and missing values are separate from sales and city t
   assert.equal(snapshotFor(allAreas, "Rentals").transactions, null);
   assert.equal(snapshotFor(allAreas, "Rentals").salesValue, null);
   const values = areaRanking("value", allAreas, "Rentals");
-  assert.equal(values.length, 5);
-  assert.equal(values[1].name, "Marsa Dubai");
+  assert.equal(values.length, 10);
+  assert.equal(values[0].name, "Burj Khalifa");
+  assert.equal(values[2].name, "Marsa Dubai");
   assert.equal(snapshotFor("Business Bay", "Rentals").medianPrice, null);
 });
 test("supplied property counts and reported rounded shares are preserved", () => {
@@ -127,7 +128,9 @@ test("supplied property counts and reported rounded shares are preserved", () =>
 test("rental exports omit sales-only figures and never infer a city rental total", () => {
   const csv = exportCsv(allAreas, "Rentals");
   assert.ok(
-    csv.includes('"Business Bay","Rental transactions","4044","rentals"'),
+    csv.includes(
+      '"Business Bay","Registered rental contracts","4044","rentals"',
+    ),
   );
   assert.ok(csv.includes('"Marsa Dubai","Rental value","346400000","AED"'));
   for (const metric of [
@@ -175,4 +178,55 @@ test("property snapshots use supplied city counts and never allocate to areas or
   ])
     assert.ok(!csv.includes(absent));
   assert.equal(exportCsv(allAreas, "Sales", "Penthouse").split("\n").length, 1);
+});
+
+test("updated rental ranks, values, comparisons and unknown contract counts match the source", () => {
+  const counts = areaRanking("volume", allAreas, "Rentals");
+  assert.deepEqual(
+    counts.map((row) => row.transactionsMom),
+    [10.1, 3.6, 4.3, 11.7, 18.6, 83.7, -12.9, 42.1, 23.5, 6.4],
+  );
+  const values = areaRanking("value", allAreas, "Rentals");
+  assert.deepEqual(
+    values.map((row) => row.name),
+    [
+      "Burj Khalifa",
+      "Business Bay",
+      "Marsa Dubai",
+      "Al Barsha South 4",
+      "Al Thanyah 5",
+      "Jebel Ali 1",
+      "Jebel Ali Industrial 1",
+      "Palm Jumeirah",
+      "Hadaeq Sheikh Mohammed Bin Rashid",
+      "Al Merkadh",
+    ],
+  );
+  assert.deepEqual(
+    values.map((row) => row.salesValue),
+    [
+      455_400_000, 387_600_000, 346_400_000, 246_100_000, 226_700_000,
+      216_100_000, 192_600_000, 188_500_000, 186_700_000, 175_700_000,
+    ],
+  );
+  const burj = snapshotFor("Burj Khalifa", "Rentals");
+  assert.equal(burj.transactions, null);
+  assert.equal(burj.transactionsMom, null);
+  assert.equal(burj.salesValue, 455_400_000);
+  assert.equal(snapshotFor("Palm Jumeirah", "Rentals").transactions, null);
+  assert.equal(snapshotFor("Palm Jumeirah").transactions, 72);
+  const csv = exportCsv(allAreas, "Rentals");
+  assert.ok(
+    csv.includes(
+      '"Al Warsan 1","Rental contracts MoM","-12.9","percent","vs August 2026"',
+    ),
+  );
+  assert.ok(csv.includes('"Burj Khalifa","Rental value","455400000","AED"'));
+  assert.ok(csv.includes('"DLD-registered rental contracts"'));
+  assert.ok(!csv.includes('"All Dubai","Registered rental contracts"'));
+  assert.ok(
+    !exportCsv("Burj Khalifa", "Rentals").includes(
+      '"Registered rental contracts"',
+    ),
+  );
 });

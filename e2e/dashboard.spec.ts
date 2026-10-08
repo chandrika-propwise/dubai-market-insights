@@ -193,13 +193,13 @@ test("rental view renders supplied area data, resets incompatible areas, and exc
   await page.goto("/");
   await page
     .getByLabel("LOCATION", { exact: true })
-    .selectOption("Palm Jumeirah");
+    .selectOption("Al Yufrah 1");
   await page.getByLabel("TRANSACTION", { exact: true }).selectOption("Rentals");
   await expect(page.getByLabel("LOCATION", { exact: true })).toHaveValue(
     "All Dubai",
   );
   await expect(page.locator(".kpi-value").first()).toHaveText("4,044");
-  await expect(page.locator(".kpi-value").nth(1)).toHaveText("AED387.6m");
+  await expect(page.locator(".kpi-value").nth(1)).toHaveText("AED455.4m");
   await expect(page.locator(".section-caption")).toContainText(
     "no Dubai-wide rental totals",
   );
@@ -214,10 +214,10 @@ test("rental view renders supplied area data, resets incompatible areas, and exc
   await page
     .getByRole("button", { name: "Rental value ranking", exact: true })
     .click();
-  await expect(page.locator("tbody tr")).toHaveCount(5);
-  await expect(page.locator("tbody tr").nth(1)).toContainText("Marsa Dubai");
+  await expect(page.locator("tbody tr")).toHaveCount(10);
+  await expect(page.locator("tbody tr").nth(0)).toContainText("Burj Khalifa");
   await page.getByRole("button", { name: "Rental value", exact: true }).click();
-  await expect(page.locator(".recharts-bar-rectangle path")).toHaveCount(5);
+  await expect(page.locator(".recharts-bar-rectangle path")).toHaveCount(10);
   await page.getByLabel("LOCATION", { exact: true }).selectOption("Hor Al Anz");
   await expect(page.locator(".kpi-value").first()).toHaveText("2,227");
   await expect(page.locator(".kpi-value").nth(1)).toHaveText("—");
@@ -345,4 +345,36 @@ test("Penthouse and rental property selections show unavailable data rather than
   await expect(page.locator("tbody tr")).toHaveCount(0);
   await page.getByRole("button", { name: "Reset all filters" }).click();
   await expect(page.locator(".kpi-value").first()).toHaveText("11,475");
+});
+
+test("updated rental contracts show signed monthly changes and value-only areas retain missing counts", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByLabel("TRANSACTION", { exact: true }).selectOption("Rentals");
+  await expect(page.locator(".source-banner").first()).toContainText(
+    "DLD-registered rental contracts",
+  );
+  await expect(page.locator(".kpi").first()).toContainText("10.1%");
+  await expect(page.locator(".kpi").nth(1)).toContainText("Burj Khalifa");
+  const decline = page.locator("tbody tr").filter({ hasText: "Al Warsan 1" });
+  await expect(decline.locator(".delta.negative")).toContainText("12.9%");
+  const growth = page.locator("tbody tr").filter({ hasText: "Al Khabaisi" });
+  await expect(growth.locator(".delta")).toContainText("83.7%");
+  await page
+    .getByLabel("LOCATION", { exact: true })
+    .selectOption("Al Khabaisi");
+  await expect(page.locator(".kpi").first()).toContainText("83.7%");
+  await page.getByLabel("LOCATION", { exact: true }).selectOption("All Dubai");
+  await page
+    .getByRole("button", { name: "Rental value ranking", exact: true })
+    .click();
+  await expect(page.locator("tbody tr").first()).toContainText("455.4m");
+  await page.getByRole("button", { name: /Burj Khalifa/ }).click();
+  await expect(page.locator(".kpi-value").first()).toHaveText("—");
+  await expect(page.locator(".kpi-value").nth(1)).toHaveText("AED455.4m");
+  await page.getByRole("button", { name: "Rental value", exact: true }).click();
+  await expect(
+    page.locator(".recharts-bar-rectangle path").first(),
+  ).toBeVisible();
 });

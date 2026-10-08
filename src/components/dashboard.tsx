@@ -235,8 +235,8 @@ export function Dashboard() {
       : `${propertyType} accounted for ${number(stats.transactions)} Dubai-wide sales (${propertyShare}% reported share). Area breakdowns, sales values, and median prices for this category were not supplied.`
     : rentals
       ? isCity
-        ? "Business Bay led the supplied rental activity leaderboard with 4,044 transactions worth AED 387.6m. Dubai-wide rental totals and rental property-type breakdowns were not supplied."
-        : `${area} recorded ${stats.transactions === null ? "an unavailable number of" : number(stats.transactions)} rental transactions${stats.salesValue !== null ? " worth AED " + money(stats.salesValue) : "; rental value was not supplied"}.`
+        ? "Business Bay led rental contract activity with 4,044 contracts (+10.1% versus August), while Burj Khalifa led rental value at AED 455.4m. Dubai-wide rental totals and rental property-type breakdowns were not supplied."
+        : `${area}: ${stats.transactions === null ? "rental contract count not supplied" : number(stats.transactions) + " registered rental contracts"}${stats.transactionsMom === null ? "" : " (" + (stats.transactionsMom > 0 ? "+" : "") + stats.transactionsMom + "% versus August)"}${stats.salesValue === null ? "; rental value not supplied" : "; rental value AED " + money(stats.salesValue)}.`
       : isCity
         ? "September recorded fewer transactions but higher total sales value and stronger median property pricing than August."
         : selected?.name === "Al Hebiah 1"
@@ -276,7 +276,12 @@ export function Dashboard() {
         <div className="source-banner">
           <Info size={16} />
           <span>
-            <strong>DLD-registered transactions · 1–30 September 2026.</strong>{" "}
+            <strong>
+              {rentals
+                ? "DLD-registered rental contracts"
+                : "DLD-registered sales"}{" "}
+              · 1–30 September 2026.
+            </strong>{" "}
             Figures supplied by Propwise; data available through 6 October 2026.
           </span>
           <span className="banner-tag">SUPPLIED DATA</span>
@@ -378,7 +383,9 @@ export function Dashboard() {
           {isProperty ? (
             <>
               <Kpi
-                title={rentals ? "Rental transactions" : "Registered sales"}
+                title={
+                  rentals ? "Registered rental contracts" : "Registered sales"
+                }
                 value={
                   stats.transactions === null
                     ? null
@@ -420,12 +427,16 @@ export function Dashboard() {
               <Kpi
                 title={
                   isCity
-                    ? "Leading area rental transactions"
-                    : "Rental transactions"
+                    ? "Leading area rental contracts"
+                    : "Registered rental contracts"
                 }
                 value={rentalCount === null ? null : number(rentalCount)}
                 icon={<Building2 size={18} />}
-                delta={null}
+                delta={
+                  isCity
+                    ? rentalCountLeader.transactionsMom
+                    : stats.transactionsMom
+                }
                 subtitle={
                   isCity
                     ? `${rentalCountLeader.name} · supplied area leader`
@@ -445,8 +456,10 @@ export function Dashboard() {
                 }
               />
               <Kpi
-                title="Areas in supplied rental leaderboard"
-                value={String(areasFor("Rentals").length)}
+                title="Areas ranked by rental contracts"
+                value={String(
+                  areaRanking("volume", allAreas, "Rentals").length,
+                )}
                 icon={<MapPin size={18} />}
                 delta={null}
                 subtitle="partial area coverage, not a city total"
@@ -456,7 +469,7 @@ export function Dashboard() {
                 value={String(rentalValueCoverage)}
                 icon={<Layers3 size={18} />}
                 delta={null}
-                subtitle="remaining five values unavailable"
+                subtitle="top ten rental-value ranking"
               />
             </>
           ) : (
@@ -553,7 +566,7 @@ export function Dashboard() {
                 <i />
                 {metric === "transactions"
                   ? rentals
-                    ? "Rental transactions"
+                    ? "Registered rental contracts"
                     : "Registered sales"
                   : rentals
                     ? "Rental value (AED)"
@@ -651,7 +664,10 @@ export function Dashboard() {
                       tick={{ fill: "#748298", fontSize: 11 }}
                       tickFormatter={
                         rentals && isCity && !isProperty
-                          ? undefined
+                          ? (value: string) =>
+                              value.length > 22
+                                ? value.slice(0, 21) + "…"
+                                : value
                           : (value) =>
                               metric === "transactions"
                                 ? value >= 1000
@@ -671,7 +687,7 @@ export function Dashboard() {
                           : `AED ${money(Number(value))}`,
                         metric === "transactions"
                           ? rentals
-                            ? "Rental transactions"
+                            ? "Registered rental contracts"
                             : "Registered sales"
                           : rentals
                             ? "Rental value"
@@ -750,17 +766,19 @@ export function Dashboard() {
               </div>
               <div className="property-share">
                 <strong>
-                  10 <small>areas</small>
+                  {areasFor("Rentals").length} <small>distinct areas</small>
                 </strong>
                 <p>
-                  Transaction counts are available for ten areas. Rental values
-                  are available for five.
+                  Two top-ten lists: registered contract counts and August
+                  comparisons for ten areas, plus rental values for ten areas.
+                  Five areas appear only in the value list; their contract
+                  counts were not supplied.
                 </p>
               </div>
               <div className="mix-note">
-                Dubai-wide rental totals, rental property types, medians, and
-                monthly comparisons were not supplied. No totals are inferred
-                from this partial list.
+                Dubai-wide rental totals, rental property types, rental medians,
+                and rental-value comparisons were not supplied. No totals are
+                inferred from this partial list.
               </div>
             </section>
           ) : (
@@ -838,10 +856,10 @@ export function Dashboard() {
                     : isCity
                       ? rankBy === "volume"
                         ? rentals
-                          ? "10 supplied areas by rental transaction count"
+                          ? "Top 10 areas by registered rental contracts"
                           : "Top 10 by registered transaction count"
                         : rentals
-                          ? "Rental value ranking among five supplied areas"
+                          ? "Top 10 areas by registered rental value"
                           : "Top 5 by total transaction value"
                       : `Supplied figures for ${area}`}
                 </p>
@@ -871,7 +889,7 @@ export function Dashboard() {
                       className={rankBy === "volume" ? "selected" : ""}
                       onClick={() => setRankBy("volume")}
                     >
-                      {rentals ? "Rental count" : "Sales count"}
+                      {rentals ? "Rental contracts" : "Sales count"}
                     </button>
                     <button
                       aria-pressed={rankBy === "value"}
@@ -893,7 +911,7 @@ export function Dashboard() {
                     <thead>
                       <tr>
                         <th>AREA / COMMUNITY</th>
-                        <th>{rentals ? "RENTALS" : "SALES"}</th>
+                        <th>{rentals ? "CONTRACTS" : "SALES"}</th>
                         <th>VALUE (AED)</th>
                         <th>COUNT MoM</th>
                       </tr>
@@ -1211,7 +1229,7 @@ export function Dashboard() {
             </p>
             <div className="report-summary">
               <span>
-                {rentals ? "Rental transactions" : "Registered sales"}:{" "}
+                {rentals ? "Registered rental contracts" : "Registered sales"}:{" "}
                 {stats.transactions === null
                   ? "Not supplied"
                   : number(stats.transactions)}

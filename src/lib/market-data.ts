@@ -140,34 +140,48 @@ export const propertyTypes = [
   { name: "Land", transactions: 695, share: 6.1 },
   { name: "Commercial and other", transactions: 856, share: 7.5 },
 ] as const;
-const rentalRows: [string, number, number | null][] = [
-  ["Business Bay", 4044, 387_600_000],
-  ["Al Barsha South 4", 3399, 246_100_000],
-  ["Jebel Ali 1", 2657, 216_100_000],
-  ["Marsa Dubai", 2316, 346_400_000],
-  ["Hor Al Anz", 2227, null],
-  ["Al Khabaisi", 2221, null],
-  ["Al Warsan 1", 1977, null],
-  ["Al Murar", 1976, null],
-  ["Al Merkadh", 1676, 175_700_000],
-  ["Port Saeed", 1555, null],
+const rentalContracts: [string, number, number][] = [
+  ["Business Bay", 4044, 10.1],
+  ["Al Barsha South 4", 3399, 3.6],
+  ["Jebel Ali 1", 2657, 4.3],
+  ["Marsa Dubai", 2316, 11.7],
+  ["Hor Al Anz", 2227, 18.6],
+  ["Al Khabaisi", 2221, 83.7],
+  ["Al Warsan 1", 1977, -12.9],
+  ["Al Murar", 1976, 42.1],
+  ["Al Merkadh", 1676, 23.5],
+  ["Port Saeed", 1555, 6.4],
 ];
-const valueOrder = [...rentalRows]
-  .filter((r) => r[2] !== null)
-  .sort((a, b) => b[2]! - a[2]!);
-export const rentalAreaMetrics: readonly AreaMetric[] = rentalRows.map(
-  ([name, transactions, salesValue], i) => ({
+const rentalValues: [string, number][] = [
+  ["Burj Khalifa", 455_400_000],
+  ["Business Bay", 387_600_000],
+  ["Marsa Dubai", 346_400_000],
+  ["Al Barsha South 4", 246_100_000],
+  ["Al Thanyah 5", 226_700_000],
+  ["Jebel Ali 1", 216_100_000],
+  ["Jebel Ali Industrial 1", 192_600_000],
+  ["Palm Jumeirah", 188_500_000],
+  ["Hadaeq Sheikh Mohammed Bin Rashid", 186_700_000],
+  ["Al Merkadh", 175_700_000],
+];
+// Merge the two supplied top-ten lists by name. A value-only area has no inferred contract count or volume rank.
+export const rentalAreaMetrics: readonly AreaMetric[] = [
+  ...new Set([
+    ...rentalContracts.map((row) => row[0]),
+    ...rentalValues.map((row) => row[0]),
+  ]),
+].map((name) => {
+  const volumeIndex = rentalContracts.findIndex((row) => row[0] === name);
+  const valueIndex = rentalValues.findIndex((row) => row[0] === name);
+  return {
     name,
-    transactions,
-    salesValue,
-    transactionsMom: null,
-    volumeRank: i + 1,
-    valueRank:
-      salesValue === null
-        ? null
-        : valueOrder.findIndex((r) => r[0] === name) + 1,
-  }),
-);
+    transactions: volumeIndex < 0 ? null : rentalContracts[volumeIndex][1],
+    salesValue: valueIndex < 0 ? null : rentalValues[valueIndex][1],
+    transactionsMom: volumeIndex < 0 ? null : rentalContracts[volumeIndex][2],
+    volumeRank: volumeIndex < 0 ? null : volumeIndex + 1,
+    valueRank: valueIndex < 0 ? null : valueIndex + 1,
+  };
+});
 export function areasFor(type: TransactionType) {
   return type === "Sales" ? areaMetrics : rentalAreaMetrics;
 }
@@ -262,7 +276,9 @@ export function exportCsv(
         value,
         unit,
         comparison,
-        reportingPeriod.source,
+        type === "Rentals"
+          ? "DLD-registered rental contracts"
+          : "DLD-registered sales",
         "Supplied by Propwise",
       ]);
   };
@@ -271,7 +287,7 @@ export function exportCsv(
     const scope = `${area} · ${propertyType}`;
     add(
       scope,
-      `${type === "Sales" ? "Sales" : "Rental"} transactions`,
+      type === "Sales" ? "Sales transactions" : "Registered rental contracts",
       snapshot.transactions,
       type.toLowerCase(),
     );
@@ -296,7 +312,7 @@ export function exportCsv(
   const snapshot = snapshotFor(area, type);
   add(
     area,
-    `${type === "Sales" ? "Sales" : "Rental"} transactions`,
+    type === "Sales" ? "Sales transactions" : "Registered rental contracts",
     snapshot.transactions,
     type.toLowerCase(),
   );
@@ -310,7 +326,7 @@ export function exportCsv(
   add(area, "Median price per sqft", snapshot.medianPriceSqft, "AED/sqft");
   add(
     area,
-    "Transactions MoM",
+    type === "Sales" ? "Transactions MoM" : "Rental contracts MoM",
     snapshot.transactionsMom,
     "percent",
     "vs August 2026",
@@ -387,8 +403,15 @@ export function exportCsv(
   }
   if (area === allAreas && type === "Rentals") {
     for (const row of rentalAreaMetrics) {
-      add(row.name, "Rental transactions", row.transactions, "rentals");
+      add(row.name, "Registered rental contracts", row.transactions, "rentals");
       add(row.name, "Rental value", row.salesValue, "AED");
+      add(
+        row.name,
+        "Rental contracts MoM",
+        row.transactionsMom,
+        "percent",
+        "vs August 2026",
+      );
     }
   }
   return csvRows(rows);
