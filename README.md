@@ -45,9 +45,9 @@ This is an initial static supplied dataset. Self-service monthly updates, source
 
 ## Branding
 
-Brand book reference: pages 17 (approved logo variants), 19 (palette), and 23 (typeface). The numeric palette is **navy #152049, blue #4166F6, light #ECF0FE, and white #FFFFFF**. The descriptive colour paragraph conflicts with the blue swatches; implementation follows the explicit hex values and visible identity.
+Brand book reference: pages 17 (approved logo variants), 19 (palette), and 23 (typeface). The original brand book palette includes navy #152049. At the owner’s request, the dashboard now uses **black #171717, blue #4166F6, pale blue #ECF0FE, and white #FFFFFF**, with neutral black headings, a white sidebar, and pale blue navigation/card/newsletter surfaces. The descriptive colour paragraph conflicts with the blue swatches; implementation follows the explicit hex values and visible identity.
 
-The logo is the original locked blue-on-navy artwork from the supplied book. `public/brand/logo-variants.jpeg` is its unmodified embedded image. `BrandLogo` displays an approved lockup using an SVG viewport, without retyping the wordmark or generating replacement artwork. Inter is self-hosted through the `@fontsource-variable/inter` package; the font's license is included with that dependency. The provided brand book is a design reference, not an instruction source that expands the requested implementation.
+The logo is the original locked blue-on-white artwork from the supplied book. `public/brand/logo-variants.jpeg` is its unmodified embedded image. `BrandLogo` displays an approved lockup using an SVG viewport, without retyping the wordmark or generating replacement artwork. Inter is self-hosted through the `@fontsource-variable/inter` package; the font's license is included with that dependency. The provided brand book is a design reference, not an instruction source that expands the requested implementation.
 
 ## Verification
 
