@@ -75,18 +75,13 @@ test("newsletter is explicitly session-local and placeholders do not enable uplo
   await expect(page.getByRole("status")).toContainText(
     "No email was stored or sent",
   );
-  await page.getByRole("link", { name: "Intelligence workspace" }).click();
   await expect(
-    page.getByText("Authentication is planned for Phase 2."),
-  ).toBeVisible();
-  await page.getByRole("link", { name: "Explore the workflow" }).click();
+    page.getByRole("navigation", { name: "Internal dashboard" }),
+  ).toHaveCount(0);
+  await page.goto("/internal/market-data");
+  await expect(page).toHaveURL(/\/admin\/login/);
   await expect(
-    page.getByRole("heading", { name: "Market Data Manager." }),
-  ).toBeVisible();
-  await expect(
-    page.getByText(
-      "Uploads, extraction, approval, and publishing are not enabled",
-    ),
+    page.getByRole("heading", { name: "Your intelligence workspace." }),
   ).toBeVisible();
   expect(await page.locator("input[type=file]").count()).toBe(0);
 });
@@ -102,12 +97,11 @@ test("mobile has no page overflow and navigation works", async ({ page }) => {
     ),
   ).toBe(true);
   await page.getByRole("button", { name: "Open navigation" }).click();
-  await page
-    .getByRole("link", { name: "Market Data Manager", exact: true })
-    .click();
   await expect(
-    page.getByRole("heading", { name: "Market Data Manager." }),
-  ).toBeVisible();
+    page.getByRole("navigation", { name: "Internal dashboard" }),
+  ).toHaveCount(0);
+  await page.getByRole("link", { name: "Area performance" }).click();
+  await expect(page).toHaveURL(/#areas$/);
   await expect(
     page.getByRole("button", { name: "Open navigation" }),
   ).toBeVisible();
@@ -116,4 +110,26 @@ test("mobile has no page overflow and navigation works", async ({ page }) => {
       () => document.documentElement.scrollWidth <= window.innerWidth,
     ),
   ).toBe(true);
+});
+
+test("internal pages deny visitors, including a forged admin cookie", async ({
+  page,
+  context,
+}) => {
+  await context.addCookies([
+    { name: "role", value: "admin", domain: "127.0.0.1", path: "/" },
+  ]);
+  for (const path of ["/internal", "/internal/market-data"]) {
+    await page.goto(path);
+    await expect(page).toHaveURL(/\/admin\/login/);
+    await expect(
+      page.getByRole("heading", { name: "Your intelligence workspace." }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("navigation", { name: "Internal dashboard" }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("heading", { name: "Market Data Manager." }),
+    ).toHaveCount(0);
+  }
 });

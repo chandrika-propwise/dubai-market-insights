@@ -15,7 +15,15 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
-export function Shell({ children }: { children: React.ReactNode }) {
+export function Shell({
+  children,
+  isAdmin = false,
+  signOutAction,
+}: {
+  children: React.ReactNode;
+  isAdmin?: boolean;
+  signOutAction?: () => Promise<void>;
+}) {
   const path = usePathname();
   const [open, setOpen] = useState(false);
   const nav = [
@@ -69,25 +77,36 @@ export function Shell({ children }: { children: React.ReactNode }) {
             </Link>
           ))}
         </nav>
-        <div className="nav-divider" />
-        <p className="nav-label">PROPWISE WORKSPACE</p>
-        <nav aria-label="Internal dashboard">
-          <Link
-            href="/internal"
-            onClick={() => setOpen(false)}
-            className={`nav-item ${path === "/internal" ? "active" : ""}`}
-          >
-            <ShieldCheck size={18} /> Intelligence workspace{" "}
-            <span className="nav-soon">Soon</span>
-          </Link>
-          <Link
-            href="/internal/market-data"
-            onClick={() => setOpen(false)}
-            className={`nav-item ${path.includes("market-data") ? "active" : ""}`}
-          >
-            <Database size={18} /> Market Data Manager
-          </Link>
-        </nav>
+        {isAdmin && (
+          <>
+            <div className="nav-divider" />
+            <p className="nav-label">PROPWISE WORKSPACE</p>
+            <nav aria-label="Internal dashboard">
+              <Link
+                href="/internal"
+                onClick={() => setOpen(false)}
+                className={`nav-item ${path === "/internal" ? "active" : ""}`}
+              >
+                <ShieldCheck size={18} /> Intelligence workspace{" "}
+                <span className="nav-soon">Admin</span>
+              </Link>
+              <Link
+                href="/internal/market-data"
+                onClick={() => setOpen(false)}
+                className={`nav-item ${path.includes("market-data") ? "active" : ""}`}
+              >
+                <Database size={18} /> Market Data Manager
+              </Link>
+            </nav>
+            {signOutAction && (
+              <form action={signOutAction}>
+                <button type="submit" className="nav-item">
+                  Sign out
+                </button>
+              </form>
+            )}
+          </>
+        )}
         <div className="sidebar-bottom">
           <div className="sidebar-note">
             <span className="eyebrow">A CLEARER VIEW OF DUBAI</span>
@@ -127,7 +146,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
               Demo environment
             </span>
             <span className="topbar-line" />
-            <span className="edition">PUBLIC EDITION</span>
+            <span className="edition">
+              {isAdmin ? "ADMIN WORKSPACE" : "PUBLIC EDITION"}
+            </span>
             <div className="header-avatar">PW</div>
           </div>
         </header>

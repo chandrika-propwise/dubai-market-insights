@@ -6,7 +6,7 @@ import {
   Send,
   ShieldCheck,
 } from "lucide-react";
-import { Shell } from "@/components/shell";
+import { requireAdmin } from "@/lib/auth/server";
 const steps = [
   {
     icon: Files,
@@ -33,9 +33,10 @@ const steps = [
       "Refresh the public dashboard while preserving previous datasets and revisions.",
   },
 ];
-export default function MarketData() {
+export default async function MarketData() {
+  await requireAdmin();
   return (
-    <Shell>
+    <>
       <main className="placeholder-page">
         <span className="eyebrow">PROPWISE WORKSPACE · PLANNED WORKFLOW</span>
         <h1>
@@ -77,12 +78,12 @@ export default function MarketData() {
             <p>
               Extraction templates will be designed after you provide sample
               screenshots. No layouts or market figures have been assumed.
-              Future functionality will require authentication, secure storage,
-              and server-side validation.
+              Future extraction will use secure storage and server-side
+              validation.
             </p>
           </div>
         </section>
       </main>
-    </Shell>
+    </>
   );
 }
