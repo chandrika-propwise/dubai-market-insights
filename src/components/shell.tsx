@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import Image from "next/image";
+import { BrandLogo } from "./brand-logo";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import {
@@ -50,11 +50,8 @@ export function Shell({
       )}
       <aside className={`sidebar ${open ? "open" : ""}`}>
         <Link href="/" className="brand" onClick={() => setOpen(false)}>
-          <Image src="/propwise-mark.svg" width={35} height={35} alt="" />
-          <span>
-            propwise<span className="brand-dot">.</span>
-            <small>MARKET INTELLIGENCE</small>
-          </span>
+          <BrandLogo />
+          <small className="brand-caption">MARKET INTELLIGENCE</small>
         </Link>
         <div className="workspace-label">
           <span className="status-dot" /> Dubai real estate{" "}
@@ -111,7 +108,7 @@ export function Shell({
           <div className="sidebar-note">
             <span className="eyebrow">A CLEARER VIEW OF DUBAI</span>
             <h3>
-              Data. Perspective.
+              One city. A clearer view.
               <br />
               Better decisions.
             </h3>
@@ -141,9 +138,9 @@ export function Shell({
             </span>
           </div>
           <div className="topbar-right">
-            <span className="demo-chip">
+            <span className="status-chip">
               <span />
-              Demo environment
+              September 2026
             </span>
             <span className="topbar-line" />
             <span className="edition">
@@ -155,7 +152,9 @@ export function Shell({
         {children}
         <footer className="page-footer">
           <span>© 2026 Propwise Marketing</span>
-          <span>Phase 1 prototype · All market figures are fictional</span>
+          <span>
+            DLD-based figures supplied by Propwise · Data through 6 Oct 2026
+          </span>
         </footer>
       </div>
     </div>

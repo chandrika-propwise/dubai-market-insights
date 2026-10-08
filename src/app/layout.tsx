@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import "./globals.css";
 export const metadata: Metadata = {
+  icons: { icon: "/brand/favicon.png" },
   title: "Propwise | Dubai Market Intelligence",
   description:
-    "An interactive Dubai real estate intelligence prototype. All statistics are fictional demo data.",
+    "Dubai market intelligence for September 2026, using DLD-based figures supplied by Propwise.",
 };
 export default function RootLayout({
   children,

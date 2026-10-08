@@ -45,7 +45,7 @@ export default async function MarketData() {
         <p>
           Your monthly data, from source screenshot to a trusted market story.
         </p>
-        <div className="demo-banner">
+        <div className="prototype-banner">
           <Database size={18} />
           <span>
             <strong>Interface placeholder only.</strong> Uploads, extraction,
