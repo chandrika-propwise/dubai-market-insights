@@ -2056,3 +2056,28 @@ tr:last-child td {
     flex-direction: column;
   }
 }
+
+.property-type-row {
+  margin-bottom: 16px;
+  padding: 8px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+}
+.property-type-row.is-selected {
+  background: var(--brand-light);
+  border-color: #dce3fc;
+}
+.property-type-button {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  text-align: left;
+  color: var(--ink);
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+}
+.property-type-button:hover {
+  color: var(--brand-blue);
+}

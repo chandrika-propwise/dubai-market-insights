@@ -35,6 +35,7 @@ import { Shell } from "./shell";
 import { Button } from "./ui/button";
 import {
   allAreas,
+  allPropertyTypes,
   areasFor,
   propertyTypes,
   money,
@@ -132,6 +133,22 @@ function Kpi({
 export function Dashboard() {
   const [transaction, setTransaction] = useState<TransactionType>("Sales");
   const rentals = transaction === "Rentals";
+  const [propertyType, setPropertyType] = useState(allPropertyTypes);
+  const isProperty = propertyType !== allPropertyTypes;
+  const property = propertyTypes.find((row) => row.name === propertyType);
+  const propertyShare =
+    transaction === "Sales" ? (property?.share ?? null) : null;
+  function selectProperty(value: string) {
+    setPropertyType(value);
+    if (value !== allPropertyTypes) {
+      setArea(allAreas);
+      setMetric("transactions");
+    }
+  }
+  function selectArea(value: string) {
+    setArea(value);
+    setPropertyType(allPropertyTypes);
+  }
   const areaMetrics = areasFor(transaction);
   const [area, setArea] = useState(allAreas),
     [metric, setMetric] = useState<"transactions" | "salesValue">(
@@ -173,14 +190,14 @@ export function Dashboard() {
       prior?.focus();
     };
   }, [report]);
-  const stats = snapshotFor(area, transaction),
-    rankings = areaRanking(rankBy, area, transaction),
+  const stats = snapshotFor(area, transaction, propertyType),
+    rankings = isProperty ? [] : areaRanking(rankBy, area, transaction),
     isCity = area === allAreas;
   const chartValue = stats[metric],
     chartMom =
       metric === "transactions" ? stats.transactionsMom : stats.salesValueMom;
   const chartData =
-    rentals && isCity
+    rentals && isCity && !isProperty
       ? areaRanking(
           metric === "transactions" ? "volume" : "value",
           allAreas,
@@ -202,31 +219,35 @@ export function Dashboard() {
   const selected = areaMetrics.find((row) => row.name === area);
   function download() {
     const url = URL.createObjectURL(
-      new Blob([exportCsv(area, transaction)], {
+      new Blob([exportCsv(area, transaction, propertyType)], {
         type: "text/csv;charset=utf-8;",
       }),
     );
     const a = document.createElement("a");
     a.href = url;
-    a.download = `propwise-september-2026-${isCity ? "dubai" : area.toLowerCase().replaceAll(" ", "-")}${rentals ? "-rentals" : ""}.csv`;
+    a.download = `propwise-september-2026-${isCity ? "dubai" : area.toLowerCase().replaceAll(" ", "-")}${rentals ? "-rentals" : ""}${isProperty ? "-" + propertyType.toLowerCase().replaceAll(" ", "-") : ""}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }
-  const insight = rentals
-    ? isCity
-      ? "Business Bay led the supplied rental activity leaderboard with 4,044 transactions worth AED 387.6m. Dubai-wide rental totals and rental property-type breakdowns were not supplied."
-      : `${area} recorded ${stats.transactions === null ? "an unavailable number of" : number(stats.transactions)} rental transactions${stats.salesValue !== null ? " worth AED " + money(stats.salesValue) : "; rental value was not supplied"}.`
-    : isCity
-      ? "September recorded fewer transactions but higher total sales value and stronger median property pricing than August."
-      : selected?.name === "Al Hebiah 1"
-        ? "Al Hebiah 1 recorded 408 sales, with transaction activity up 113.6% versus August — the strongest supplied increase among the busiest areas."
-        : selected?.name === "Palm Jumeirah"
-          ? "Palm Jumeirah recorded 72 transactions worth AED 1.37bn, reflecting its premium pricing."
-          : selected?.name === "Madinat Al Mataar"
-            ? "Madinat Al Mataar led the supplied transaction-volume ranking with 928 sales."
-            : selected?.name === "Business Bay"
-              ? "Business Bay led the supplied sales-value ranking with AED 1.50bn across 437 transactions."
-              : `${area} has ${selected?.transactions !== null && selected?.transactions !== undefined ? number(selected.transactions) + " supplied sales transactions" : "no supplied transaction count"}${selected?.salesValue ? " and AED " + billions(selected.salesValue) + "bn in sales value" : ""}. Additional price and historical breakdowns were not supplied.`;
+  const insight = isProperty
+    ? stats.transactions === null
+      ? `${propertyType} ${transaction.toLowerCase()} figures were not supplied separately for September 2026.`
+      : `${propertyType} accounted for ${number(stats.transactions)} Dubai-wide sales (${propertyShare}% reported share). Area breakdowns, sales values, and median prices for this category were not supplied.`
+    : rentals
+      ? isCity
+        ? "Business Bay led the supplied rental activity leaderboard with 4,044 transactions worth AED 387.6m. Dubai-wide rental totals and rental property-type breakdowns were not supplied."
+        : `${area} recorded ${stats.transactions === null ? "an unavailable number of" : number(stats.transactions)} rental transactions${stats.salesValue !== null ? " worth AED " + money(stats.salesValue) : "; rental value was not supplied"}.`
+      : isCity
+        ? "September recorded fewer transactions but higher total sales value and stronger median property pricing than August."
+        : selected?.name === "Al Hebiah 1"
+          ? "Al Hebiah 1 recorded 408 sales, with transaction activity up 113.6% versus August — the strongest supplied increase among the busiest areas."
+          : selected?.name === "Palm Jumeirah"
+            ? "Palm Jumeirah recorded 72 transactions worth AED 1.37bn, reflecting its premium pricing."
+            : selected?.name === "Madinat Al Mataar"
+              ? "Madinat Al Mataar led the supplied transaction-volume ranking with 928 sales."
+              : selected?.name === "Business Bay"
+                ? "Business Bay led the supplied sales-value ranking with AED 1.50bn across 437 transactions."
+                : `${area} has ${selected?.transactions !== null && selected?.transactions !== undefined ? number(selected.transactions) + " supplied sales transactions" : "no supplied transaction count"}${selected?.salesValue ? " and AED " + billions(selected.salesValue) + "bn in sales value" : ""}. Additional price and historical breakdowns were not supplied.`;
   return (
     <Shell>
       <main className="dashboard">
@@ -273,7 +294,7 @@ export function Dashboard() {
             label="LOCATION"
             value={area}
             options={[allAreas, ...areaMetrics.map((row) => row.name).sort()]}
-            onChange={setArea}
+            onChange={selectArea}
           />
           <Select
             label="DEVELOPER"
@@ -283,11 +304,13 @@ export function Dashboard() {
           />
           <Select
             label="PROPERTY TYPE"
-            value={rentals ? "Not supplied" : "Dubai-wide sales split below"}
+            value={propertyType}
             options={[
-              rentals ? "Not supplied" : "Dubai-wide sales split below",
+              allPropertyTypes,
+              ...propertyTypes.map((row) => row.name),
+              "Penthouse",
             ]}
-            disabled
+            onChange={selectProperty}
           />
           <Select
             label="TRANSACTION"
@@ -296,6 +319,7 @@ export function Dashboard() {
             onChange={(value) => {
               const next = value as TransactionType;
               setTransaction(next);
+              setPropertyType(allPropertyTypes);
               if (!areasFor(next).some((row) => row.name === area))
                 setArea(allAreas);
             }}
@@ -307,32 +331,91 @@ export function Dashboard() {
             onClick={() => {
               setArea(allAreas);
               setTransaction("Sales");
+              setPropertyType(allPropertyTypes);
             }}
           >
             <RotateCcw size={16} />
           </Button>
         </section>
         <p className="filter-help">
-          Select Sales or Rentals, then an area. The sales property-type split
-          is Dubai-wide; area × property-type breakdowns and separate penthouse
-          data were not supplied. Missing figures appear as —.
+          {isProperty
+            ? `${propertyType} · Dubai-wide ${transaction.toLowerCase()}. Selecting a property type returns Location to All Dubai; selecting an area clears the property filter because no combined breakdown was supplied.`
+            : "Select a property type to explore Dubai-wide figures, or select an area for its supplied sales/rental metrics. Penthouse and rental property-type figures were not supplied separately."}
         </p>
+        {isProperty && stats.transactions === null && (
+          <div className="source-banner" role="status">
+            <Info size={16} />
+            <span>
+              <strong>{propertyType}: data not supplied.</strong>{" "}
+              {rentals
+                ? "No rental property-type breakdown was provided."
+                : "The supplied sales split does not separate penthouses."}
+            </span>
+          </div>
+        )}
+
         <div className="section-heading">
           <h2>
-            {rentals ? "Rentals at a glance" : "Market at a glance"}{" "}
+            {isProperty
+              ? `${propertyType} at a glance`
+              : rentals
+                ? "Rentals at a glance"
+                : "Market at a glance"}{" "}
             <span className="period-pill">Sept 2026</span>
           </h2>
           <span className="section-caption">
             <span className="status-dot" />
-            {isCity
-              ? rentals
-                ? "Supplied area leaderboard · no Dubai-wide rental totals"
-                : "Dubai-wide overview"
-              : area}
+            {isProperty
+              ? `Dubai-wide ${transaction.toLowerCase()} · ${propertyType}`
+              : isCity
+                ? rentals
+                  ? "Supplied area leaderboard · no Dubai-wide rental totals"
+                  : "Dubai-wide overview"
+                : area}
           </span>
         </div>
         <section className="kpi-grid" aria-label="Market key metrics">
-          {rentals ? (
+          {isProperty ? (
+            <>
+              <Kpi
+                title={rentals ? "Rental transactions" : "Registered sales"}
+                value={
+                  stats.transactions === null
+                    ? null
+                    : number(stats.transactions)
+                }
+                icon={<Building2 size={18} />}
+                delta={stats.transactionsMom}
+                subtitle={`${propertyType} · all Dubai`}
+              />
+              <Kpi
+                title={
+                  rentals
+                    ? "Rental transaction share"
+                    : "Reported sales transaction share"
+                }
+                value={propertyShare === null ? null : String(propertyShare)}
+                suffix="%"
+                icon={<Layers3 size={18} />}
+                delta={null}
+                subtitle="share of Dubai-wide registered sales"
+              />
+              <Kpi
+                title={rentals ? "Rental value" : "Sales value"}
+                value={null}
+                icon={<Wallet size={18} />}
+                delta={null}
+                subtitle="category value not supplied"
+              />
+              <Kpi
+                title="Median price / sq ft"
+                value={null}
+                icon={<ChartNoAxesCombined size={18} />}
+                delta={null}
+                subtitle="category median not supplied"
+              />
+            </>
+          ) : rentals ? (
             <>
               <Kpi
                 title={
@@ -433,7 +516,7 @@ export function Dashboard() {
             <div className="panel-heading">
               <div>
                 <h2>
-                  {rentals && isCity
+                  {rentals && isCity && !isProperty
                     ? "Rental activity by supplied area"
                     : "September market activity"}
                 </h2>
@@ -442,8 +525,9 @@ export function Dashboard() {
                     ? rentals
                       ? "Partial rental leaderboard"
                       : "Dubai-wide registered sales"
-                    : area}{" "}
-                  · one supplied reporting month
+                    : area}
+                  {isProperty && ` · ${propertyType}`} · one supplied reporting
+                  month
                 </p>
               </div>
               <span className="small-badge">September snapshot</span>
@@ -478,27 +562,41 @@ export function Dashboard() {
             </div>
             <div
               className="trend-chart"
-              style={rentals && isCity ? { height: 340 } : undefined}
+              style={
+                rentals && isCity && !isProperty ? { height: 340 } : undefined
+              }
               role={hasChartData ? "img" : "status"}
               aria-label={
                 !hasChartData
                   ? undefined
-                  : rentals && isCity
+                  : rentals && isCity && !isProperty
                     ? "September 2026 rental activity by supplied area"
-                    : `September 2026 ${metric === "transactions" ? "transactions" : rentals ? "rental value" : "sales value"} for ${area}: ${metric === "transactions" ? number(chartValue!) : "AED " + billions(chartValue!) + " billion"}`
+                    : `September 2026 ${metric === "transactions" ? "transactions" : rentals ? "rental value" : "sales value"} for ${area}${isProperty ? " · " + propertyType : ""}: ${metric === "transactions" ? number(chartValue!) : "AED " + billions(chartValue!) + " billion"}`
               }
             >
               {!hasChartData ? (
                 <div className="empty-chart">
                   <ChartNoAxesCombined size={26} />
-                  <strong>This area metric was not supplied.</strong>
-                  <p>Try another area or switch the chart metric.</p>
+                  <strong>
+                    {isProperty
+                      ? "This property-type metric was not supplied."
+                      : "This area metric was not supplied."}
+                  </strong>
+                  <p>
+                    {isProperty
+                      ? "Choose another property type or return to All property types."
+                      : "Try another area or switch the chart metric."}
+                  </p>
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
                     data={chartData}
-                    layout={rentals && isCity ? "vertical" : "horizontal"}
+                    layout={
+                      rentals && isCity && !isProperty
+                        ? "vertical"
+                        : "horizontal"
+                    }
                     margin={{ top: 15, right: 24, left: 4, bottom: 0 }}
                   >
                     <defs>
@@ -519,13 +617,17 @@ export function Dashboard() {
                       stroke="#e9edf7"
                     />
                     <XAxis
-                      dataKey={rentals && isCity ? undefined : "month"}
-                      type={rentals && isCity ? "number" : "category"}
+                      dataKey={
+                        rentals && isCity && !isProperty ? undefined : "month"
+                      }
+                      type={
+                        rentals && isCity && !isProperty ? "number" : "category"
+                      }
                       axisLine={false}
                       tickLine={false}
                       tick={{ fill: "#748298", fontSize: 11 }}
                       tickFormatter={
-                        rentals && isCity
+                        rentals && isCity && !isProperty
                           ? (value) =>
                               metric === "transactions"
                                 ? number(value)
@@ -534,15 +636,21 @@ export function Dashboard() {
                       }
                     />
                     <YAxis
-                      dataKey={rentals && isCity ? "month" : undefined}
-                      interval={rentals && isCity ? 0 : undefined}
-                      type={rentals && isCity ? "category" : "number"}
+                      dataKey={
+                        rentals && isCity && !isProperty ? "month" : undefined
+                      }
+                      interval={
+                        rentals && isCity && !isProperty ? 0 : undefined
+                      }
+                      type={
+                        rentals && isCity && !isProperty ? "category" : "number"
+                      }
                       domain={[0, "auto"]}
                       axisLine={false}
                       tickLine={false}
                       tick={{ fill: "#748298", fontSize: 11 }}
                       tickFormatter={
-                        rentals && isCity
+                        rentals && isCity && !isProperty
                           ? undefined
                           : (value) =>
                               metric === "transactions"
@@ -553,7 +661,7 @@ export function Dashboard() {
                                   ? `${value / 1e6}m`
                                   : `${value / 1e9}bn`
                       }
-                      width={rentals && isCity ? 145 : 50}
+                      width={rentals && isCity && !isProperty ? 145 : 50}
                     />
                     <Tooltip
                       cursor={{ fill: "#f5f7ff" }}
@@ -570,7 +678,7 @@ export function Dashboard() {
                             : "Sales value",
                       ]}
                       labelFormatter={(label) =>
-                        `September 2026 · ${rentals && isCity ? label : area}`
+                        `September 2026 · ${rentals && isCity && !isProperty ? label : area}`
                       }
                       contentStyle={{
                         borderRadius: 10,
@@ -599,7 +707,39 @@ export function Dashboard() {
               </span>
             </div>
           </section>
-          {rentals ? (
+          {isProperty ? (
+            <section className="panel mix-panel">
+              <div className="panel-heading">
+                <div>
+                  <h2>Property-type scope</h2>
+                  <p>
+                    {propertyType} · Dubai-wide {transaction.toLowerCase()}
+                  </p>
+                </div>
+                <Info size={18} />
+              </div>
+              <div className="property-share">
+                <p>
+                  Category transaction counts and shares are shown when
+                  supplied. Area rankings, off-plan/ready splits, values, and
+                  median prices are unavailable for this selection.
+                </p>
+              </div>
+              <div className="mix-note">
+                Penthouse figures were not supplied separately; no allocation
+                from apartment totals is assumed.
+              </div>
+              <div className="panel-bottom">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => selectProperty(allPropertyTypes)}
+                >
+                  All property types <ArrowRight size={14} />
+                </Button>
+              </div>
+            </section>
+          ) : rentals ? (
             <section className="panel mix-panel">
               <div className="panel-heading">
                 <div>
@@ -693,127 +833,149 @@ export function Dashboard() {
               <div>
                 <h2>Where Dubai is moving</h2>
                 <p>
-                  {isCity
-                    ? rankBy === "volume"
-                      ? rentals
-                        ? "10 supplied areas by rental transaction count"
-                        : "Top 10 by registered transaction count"
-                      : rentals
-                        ? "Rental value ranking among five supplied areas"
-                        : "Top 5 by total transaction value"
-                    : `Supplied figures for ${area}`}
+                  {isProperty
+                    ? "Area breakdown unavailable for this property type"
+                    : isCity
+                      ? rankBy === "volume"
+                        ? rentals
+                          ? "10 supplied areas by rental transaction count"
+                          : "Top 10 by registered transaction count"
+                        : rentals
+                          ? "Rental value ranking among five supplied areas"
+                          : "Top 5 by total transaction value"
+                      : `Supplied figures for ${area}`}
                 </p>
               </div>
               <MapPin size={18} className="text-slate-400" />
             </div>
-            <div className="area-toolbar">
-              <div className="segmented">
-                <button
-                  aria-pressed={rankBy === "volume"}
-                  className={rankBy === "volume" ? "selected" : ""}
-                  onClick={() => setRankBy("volume")}
+            {isProperty ? (
+              <div className="property-share">
+                <p>
+                  Area × property-type data was not supplied. The city-wide{" "}
+                  {propertyType.toLowerCase()} count cannot be assigned to
+                  individual areas.
+                </p>
+                <Button
+                  variant="outline"
+                  onClick={() => selectProperty(allPropertyTypes)}
                 >
-                  {rentals ? "Rental count" : "Sales count"}
-                </button>
-                <button
-                  aria-pressed={rankBy === "value"}
-                  className={rankBy === "value" ? "selected" : ""}
-                  onClick={() => setRankBy("value")}
-                >
-                  {rentals ? "Rental value ranking" : "Sales value ranking"}
-                </button>
+                  Show all-property area rankings
+                </Button>
               </div>
-            </div>
-            <div className="table-wrap">
-              <table>
-                <caption className="sr-only">
-                  Supplied September 2026 area data, ranked by{" "}
-                  {rankBy === "volume" ? "transaction count" : "sales value"}
-                </caption>
-                <thead>
-                  <tr>
-                    <th>AREA / COMMUNITY</th>
-                    <th>{rentals ? "RENTALS" : "SALES"}</th>
-                    <th>VALUE (AED)</th>
-                    <th>COUNT MoM</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rankings.map((row) => (
-                    <tr key={row.name}>
-                      <td>
-                        <button
-                          className="area-name"
-                          onClick={() => setArea(row.name)}
-                        >
-                          <span className="row-number">
-                            {(rankBy === "volume"
-                              ? row.volumeRank
-                              : row.valueRank
-                            )
-                              ?.toString()
-                              .padStart(2, "0") ?? "—"}
-                          </span>
-                          {row.name}
-                          <ArrowUpRight size={12} />
-                        </button>
-                      </td>
-                      <td>
-                        {row.transactions === null ? (
-                          <span
-                            className="missing-value"
-                            title="Transaction count not supplied"
-                          >
-                            —
-                          </span>
-                        ) : (
-                          number(row.transactions)
-                        )}
-                        {row.transactions !== null && (
-                          <div className="table-bar">
-                            <span
-                              style={{
-                                width: `${(row.transactions / (rentals ? 4044 : 928)) * 100}%`,
-                              }}
-                            />
-                          </div>
-                        )}
-                      </td>
-                      <td>
-                        {row.salesValue === null ? (
-                          <span
-                            className="missing-value"
-                            title={`${transaction} value not supplied`}
-                          >
-                            —
-                          </span>
-                        ) : (
-                          money(row.salesValue)
-                        )}
-                      </td>
-                      <td>
-                        {row.transactionsMom === null ? (
-                          <span
-                            className="missing-value"
-                            title="Monthly comparison not supplied"
-                          >
-                            —
-                          </span>
-                        ) : (
-                          <Delta value={row.transactionsMom} />
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            ) : (
+              <>
+                <div className="area-toolbar">
+                  <div className="segmented">
+                    <button
+                      aria-pressed={rankBy === "volume"}
+                      className={rankBy === "volume" ? "selected" : ""}
+                      onClick={() => setRankBy("volume")}
+                    >
+                      {rentals ? "Rental count" : "Sales count"}
+                    </button>
+                    <button
+                      aria-pressed={rankBy === "value"}
+                      className={rankBy === "value" ? "selected" : ""}
+                      onClick={() => setRankBy("value")}
+                    >
+                      {rentals ? "Rental value ranking" : "Sales value ranking"}
+                    </button>
+                  </div>
+                </div>
+                <div className="table-wrap">
+                  <table>
+                    <caption className="sr-only">
+                      Supplied September 2026 area data, ranked by{" "}
+                      {rankBy === "volume"
+                        ? "transaction count"
+                        : "sales value"}
+                    </caption>
+                    <thead>
+                      <tr>
+                        <th>AREA / COMMUNITY</th>
+                        <th>{rentals ? "RENTALS" : "SALES"}</th>
+                        <th>VALUE (AED)</th>
+                        <th>COUNT MoM</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rankings.map((row) => (
+                        <tr key={row.name}>
+                          <td>
+                            <button
+                              className="area-name"
+                              onClick={() => selectArea(row.name)}
+                            >
+                              <span className="row-number">
+                                {(rankBy === "volume"
+                                  ? row.volumeRank
+                                  : row.valueRank
+                                )
+                                  ?.toString()
+                                  .padStart(2, "0") ?? "—"}
+                              </span>
+                              {row.name}
+                              <ArrowUpRight size={12} />
+                            </button>
+                          </td>
+                          <td>
+                            {row.transactions === null ? (
+                              <span
+                                className="missing-value"
+                                title="Transaction count not supplied"
+                              >
+                                —
+                              </span>
+                            ) : (
+                              number(row.transactions)
+                            )}
+                            {row.transactions !== null && (
+                              <div className="table-bar">
+                                <span
+                                  style={{
+                                    width: `${(row.transactions / (rentals ? 4044 : 928)) * 100}%`,
+                                  }}
+                                />
+                              </div>
+                            )}
+                          </td>
+                          <td>
+                            {row.salesValue === null ? (
+                              <span
+                                className="missing-value"
+                                title={`${transaction} value not supplied`}
+                              >
+                                —
+                              </span>
+                            ) : (
+                              money(row.salesValue)
+                            )}
+                          </td>
+                          <td>
+                            {row.transactionsMom === null ? (
+                              <span
+                                className="missing-value"
+                                title="Monthly comparison not supplied"
+                              >
+                                —
+                              </span>
+                            ) : (
+                              <Delta value={row.transactionsMom} />
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
             <div className="panel-bottom">
               Partial area dataset · — means not supplied
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setArea(allAreas)}
+                onClick={() => selectArea(allAreas)}
               >
                 All Dubai <ArrowRight size={14} />
               </Button>
@@ -847,8 +1009,17 @@ export function Dashboard() {
                 <>
                   <div className="property-share">
                     {propertyTypes.map((row) => (
-                      <div key={row.name} style={{ marginBottom: 16 }}>
-                        <span>{row.name}</span>
+                      <div
+                        key={row.name}
+                        className={`property-type-row ${propertyType === row.name ? "is-selected" : ""}`}
+                      >
+                        <button
+                          className="property-type-button"
+                          aria-pressed={propertyType === row.name}
+                          onClick={() => selectProperty(row.name)}
+                        >
+                          {row.name} <ArrowUpRight size={12} />
+                        </button>
                         <div
                           style={{
                             display: "flex",
@@ -1034,8 +1205,9 @@ export function Dashboard() {
               {isCity ? "Dubai" : "Area"} market snapshot
             </h2>
             <p>
-              {area} · {transaction}, 1–30 September. Data through 6 October
-              2026, supplied by Propwise.
+              {area}
+              {isProperty && ` · ${propertyType}`} · {transaction}, 1–30
+              September. Data through 6 October 2026, supplied by Propwise.
             </p>
             <div className="report-summary">
               <span>
@@ -1065,7 +1237,10 @@ export function Dashboard() {
               metrics are omitted, and Dubai-wide figures are excluded from
               area-only exports.
             </p>
-            <Button onClick={download}>
+            <Button
+              onClick={download}
+              disabled={isProperty && stats.transactions === null}
+            >
               <ArrowDownToLine size={16} /> Download supplied data (CSV)
             </Button>
             <Button variant="ghost" onClick={() => setReport(false)}>

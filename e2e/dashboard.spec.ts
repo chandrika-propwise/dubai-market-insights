@@ -28,9 +28,7 @@ test("supplied September totals, median labels, shares, and branded logo render 
     "data available through 6 October 2026",
   );
   await expect(page.getByLabel("DEVELOPER", { exact: true })).toBeDisabled();
-  await expect(
-    page.getByLabel("PROPERTY TYPE", { exact: true }),
-  ).toBeDisabled();
+  await expect(page.getByLabel("PROPERTY TYPE", { exact: true })).toBeEnabled();
   await expect(page.getByLabel("TRANSACTION", { exact: true })).toBeEnabled();
   await expect(page.locator("tbody tr")).toHaveCount(10);
   await expect(page.locator("tbody tr").first()).toContainText(
@@ -261,4 +259,90 @@ test("mobile rental chart and filters stay inside the viewport", async ({
       () => document.documentElement.scrollWidth <= window.innerWidth,
     ),
   ).toBe(true);
+});
+
+test("property filter updates category KPIs, chart, scope and CSV, and area selection clears it", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page
+    .getByLabel("LOCATION", { exact: true })
+    .selectOption("Business Bay");
+  await page
+    .getByLabel("PROPERTY TYPE", { exact: true })
+    .selectOption("Apartments");
+  await expect(page.getByLabel("LOCATION", { exact: true })).toHaveValue(
+    "All Dubai",
+  );
+  await expect(page.locator(".kpi-value").first()).toHaveText("8,952");
+  await expect(page.locator(".kpi-value").nth(1)).toHaveText("78%");
+  await expect(page.locator(".kpi-value").nth(2)).toHaveText("—");
+  await expect(
+    page.getByRole("img", {
+      name: /September 2026 transactions for All Dubai · Apartments: 8,952/,
+    }),
+  ).toBeVisible();
+  await expect(page.locator("tbody tr")).toHaveCount(0);
+  await expect(
+    page.getByRole("heading", { name: "Off-plan vs. ready" }),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "Monthly report" }).click();
+  const pending = page.waitForEvent("download");
+  await page
+    .getByRole("button", { name: "Download supplied data (CSV)" })
+    .click();
+  const download = await pending;
+  expect(download.suggestedFilename()).toBe(
+    "propwise-september-2026-dubai-apartments.csv",
+  );
+  const csv = await readFile((await download.path())!, "utf8");
+  expect(csv).toContain('"8952","sales"');
+  expect(csv).not.toContain("11475");
+  expect(csv).not.toContain("Business Bay");
+  await page.keyboard.press("Escape");
+  await page
+    .getByLabel("PROPERTY TYPE", { exact: true })
+    .selectOption("Villas and townhouses");
+  await expect(page.locator(".kpi-value").first()).toHaveText("972");
+  await expect(page.locator(".kpi-value").nth(1)).toHaveText("8.5%");
+  await page
+    .getByLabel("LOCATION", { exact: true })
+    .selectOption("Business Bay");
+  await expect(page.getByLabel("PROPERTY TYPE", { exact: true })).toHaveValue(
+    "All property types",
+  );
+  await expect(page.locator(".kpi-value").first()).toHaveText("437");
+  await page.getByRole("button", { name: "Land", exact: true }).click();
+  await expect(page.locator(".kpi-value").first()).toHaveText("695");
+  await page
+    .getByLabel("PROPERTY TYPE", { exact: true })
+    .selectOption("Commercial and other");
+  await expect(page.locator(".kpi-value").first()).toHaveText("856");
+});
+test("Penthouse and rental property selections show unavailable data rather than invented totals", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page
+    .getByLabel("PROPERTY TYPE", { exact: true })
+    .selectOption("Penthouse");
+  await expect(page.locator(".kpi-value").first()).toHaveText("—");
+  await expect(page.getByText("Penthouse: data not supplied.")).toBeVisible();
+  await page.getByRole("button", { name: "Monthly report" }).click();
+  await expect(
+    page.getByRole("button", { name: "Download supplied data (CSV)" }),
+  ).toBeDisabled();
+  await page.keyboard.press("Escape");
+  await page.getByLabel("TRANSACTION", { exact: true }).selectOption("Rentals");
+  await expect(page.getByLabel("PROPERTY TYPE", { exact: true })).toHaveValue(
+    "All property types",
+  );
+  await page
+    .getByLabel("PROPERTY TYPE", { exact: true })
+    .selectOption("Apartments");
+  await expect(page.locator(".kpi-value").first()).toHaveText("—");
+  await expect(page.locator(".recharts-bar-rectangle path")).toHaveCount(0);
+  await expect(page.locator("tbody tr")).toHaveCount(0);
+  await page.getByRole("button", { name: "Reset all filters" }).click();
+  await expect(page.locator(".kpi-value").first()).toHaveText("11,475");
 });

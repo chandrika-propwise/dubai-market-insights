@@ -133,6 +133,7 @@ export const areaMetrics: readonly AreaMetric[] = [
   },
 ];
 export type TransactionType = "Sales" | "Rentals";
+export const allPropertyTypes = "All property types";
 export const propertyTypes = [
   { name: "Apartments", transactions: 8952, share: 78 },
   { name: "Villas and townhouses", transactions: 972, share: 8.5 },
@@ -186,7 +187,26 @@ export type Snapshot = {
 export function snapshotFor(
   area: string,
   type: TransactionType = "Sales",
+  propertyType = allPropertyTypes,
 ): Snapshot {
+  if (propertyType !== allPropertyTypes) {
+    const row =
+      type === "Sales" && area === allAreas
+        ? propertyTypes.find((r) => r.name === propertyType)
+        : undefined;
+    return {
+      transactions: row?.transactions ?? null,
+      salesValue: null,
+      medianPrice: null,
+      medianPriceSqft: null,
+      transactionsMom:
+        row?.name === "Villas and townhouses"
+          ? market.villasTownhousesMom
+          : null,
+      salesValueMom: null,
+      medianPriceMom: null,
+    };
+  }
   if (area === allAreas && type === "Sales") return market;
   const row = areasFor(type).find((r) => r.name === area);
   return {
@@ -218,7 +238,11 @@ export function number(value: number) {
 export function billions(value: number) {
   return (value / 1e9).toFixed(2);
 }
-export function exportCsv(area: string, type: TransactionType = "Sales") {
+export function exportCsv(
+  area: string,
+  type: TransactionType = "Sales",
+  propertyType = allPropertyTypes,
+) {
   const rows: (string | number)[][] = [];
   const add = (
     scope: string,
@@ -242,6 +266,33 @@ export function exportCsv(area: string, type: TransactionType = "Sales") {
         "Supplied by Propwise",
       ]);
   };
+  if (propertyType !== allPropertyTypes) {
+    const snapshot = snapshotFor(area, type, propertyType);
+    const scope = `${area} · ${propertyType}`;
+    add(
+      scope,
+      `${type === "Sales" ? "Sales" : "Rental"} transactions`,
+      snapshot.transactions,
+      type.toLowerCase(),
+    );
+    if (type === "Sales" && area === allAreas) {
+      const category = propertyTypes.find((r) => r.name === propertyType);
+      add(
+        scope,
+        "Reported sales transaction share",
+        category?.share ?? null,
+        "percent",
+      );
+      add(
+        scope,
+        "Transactions MoM",
+        snapshot.transactionsMom,
+        "percent",
+        "vs August 2026",
+      );
+    }
+    return csvRows(rows);
+  }
   const snapshot = snapshotFor(area, type);
   add(
     area,
@@ -340,6 +391,9 @@ export function exportCsv(area: string, type: TransactionType = "Sales") {
       add(row.name, "Rental value", row.salesValue, "AED");
     }
   }
+  return csvRows(rows);
+}
+function csvRows(rows: (string | number)[][]) {
   const header = [
     "Reporting month",
     "Period start",

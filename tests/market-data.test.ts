@@ -143,3 +143,36 @@ test("rental exports omit sales-only figures and never infer a city rental total
   assert.ok(!area.includes('"Rental value"'));
   assert.ok(!area.includes("Business Bay"));
 });
+
+test("property snapshots use supplied city counts and never allocate to areas or rentals", () => {
+  for (const row of propertyTypes) {
+    const category = snapshotFor(allAreas, "Sales", row.name);
+    assert.equal(category.transactions, row.transactions);
+    assert.equal(category.salesValue, null);
+    assert.equal(category.medianPrice, null);
+    assert.equal(
+      snapshotFor("Business Bay", "Sales", row.name).transactions,
+      null,
+    );
+    assert.equal(snapshotFor(allAreas, "Rentals", row.name).transactions, null);
+  }
+  assert.equal(snapshotFor(allAreas, "Sales", "Penthouse").transactions, null);
+  assert.equal(
+    snapshotFor(allAreas, "Sales", "Villas and townhouses").transactionsMom,
+    14.8,
+  );
+  const csv = exportCsv(allAreas, "Sales", "Apartments");
+  assert.ok(
+    csv.includes('"All Dubai · Apartments","Sales transactions","8952"'),
+  );
+  assert.ok(csv.includes('"Reported sales transaction share","78","percent"'));
+  for (const absent of [
+    "11475",
+    "Business Bay",
+    "Off-plan",
+    "Median property price",
+    "Villas and townhouses",
+  ])
+    assert.ok(!csv.includes(absent));
+  assert.equal(exportCsv(allAreas, "Sales", "Penthouse").split("\n").length, 1);
+});
