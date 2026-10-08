@@ -209,7 +209,7 @@ test("rental view renders supplied area data, resets incompatible areas, and exc
     page.getByRole("heading", { name: "Off-plan vs. ready" }),
   ).toHaveCount(0);
   await expect(page.locator(".property-panel")).toContainText(
-    "Rental property-type counts and shares were not supplied",
+    "City-wide rental category totals and shares",
   );
   await page
     .getByRole("button", { name: "Rental value ranking", exact: true })
@@ -319,7 +319,7 @@ test("property filter updates category KPIs, chart, scope and CSV, and area sele
     .selectOption("Commercial and other");
   await expect(page.locator(".kpi-value").first()).toHaveText("856");
 });
-test("Penthouse and rental property selections show unavailable data rather than invented totals", async ({
+test("Penthouse and unsupported rental property selections show unavailable data rather than invented totals", async ({
   page,
 }) => {
   await page.goto("/");
@@ -337,9 +337,7 @@ test("Penthouse and rental property selections show unavailable data rather than
   await expect(page.getByLabel("PROPERTY TYPE", { exact: true })).toHaveValue(
     "All property types",
   );
-  await page
-    .getByLabel("PROPERTY TYPE", { exact: true })
-    .selectOption("Apartments");
+  await page.getByLabel("PROPERTY TYPE", { exact: true }).selectOption("Land");
   await expect(page.locator(".kpi-value").first()).toHaveText("—");
   await expect(page.locator(".recharts-bar-rectangle path")).toHaveCount(0);
   await expect(page.locator("tbody tr")).toHaveCount(0);
@@ -377,4 +375,101 @@ test("updated rental contracts show signed monthly changes and value-only areas 
   await expect(
     page.locator(".recharts-bar-rectangle path").first(),
   ).toBeVisible();
+});
+
+test("rental apartment and villa filters retain area scope and export category-only figures", async ({
+  page,
+}) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  await page.goto("/");
+  await page.getByLabel("TRANSACTION", { exact: true }).selectOption("Rentals");
+  await page
+    .getByLabel("PROPERTY TYPE", { exact: true })
+    .selectOption("Apartments");
+  await expect(page.locator(".kpi-value").first()).toHaveText("3,234");
+  await expect(page.locator(".kpi-value").nth(1)).toHaveText("AED375.6m");
+  await expect(page.locator("tbody tr")).toHaveCount(10);
+  await expect(page.locator("tbody tr").first()).toContainText(
+    "Al Barsha South 4",
+  );
+  await page
+    .getByRole("button", { name: "Rental value ranking", exact: true })
+    .click();
+  await expect(page.locator("tbody tr")).toHaveCount(7);
+  await expect(page.locator("tbody tr").first()).toContainText("Burj Khalifa");
+  await page
+    .getByLabel("LOCATION", { exact: true })
+    .selectOption("Business Bay");
+  await expect(page.getByLabel("PROPERTY TYPE", { exact: true })).toHaveValue(
+    "Apartments",
+  );
+  await expect(page.locator(".kpi-value").first()).toHaveText("2,259");
+  await expect(page.locator(".kpi-value").nth(1)).toHaveText("AED223.8m");
+  await expect(page.locator(".kpi").first()).not.toContainText("10.1%");
+  await page.getByRole("button", { name: "Monthly report" }).click();
+  const pending = page.waitForEvent("download");
+  await page
+    .getByRole("button", { name: "Download supplied data (CSV)" })
+    .click();
+  const download = await pending;
+  const csv = await readFile((await download.path())!, "utf8");
+  expect(csv).toContain('"Business Bay · Apartments"');
+  expect(csv).toContain('"2259","rentals"');
+  expect(csv).not.toContain("4044");
+  expect(csv).not.toContain("MoM");
+  await page.keyboard.press("Escape");
+  await page
+    .getByLabel("PROPERTY TYPE", { exact: true })
+    .selectOption("Villas and townhouses");
+  await expect(page.getByLabel("LOCATION", { exact: true })).toHaveValue(
+    "All Dubai",
+  );
+  await expect(page.locator(".kpi-value").first()).toHaveText("468");
+  await expect(page.locator(".kpi-value").nth(1)).toHaveText("AED93.9m");
+  await expect(page.locator("tbody tr")).toHaveCount(6);
+  await page
+    .getByLabel("LOCATION", { exact: true })
+    .selectOption("Jebel Ali 1");
+  await expect(page.locator(".kpi-value").first()).toHaveText("231");
+  await expect(page.locator(".kpi-value").nth(1)).toHaveText("AED54.6m");
+  await page.getByLabel("LOCATION", { exact: true }).selectOption("Mirdif");
+  await page
+    .getByLabel("PROPERTY TYPE", { exact: true })
+    .selectOption("All property types");
+  await expect(page.getByLabel("LOCATION", { exact: true })).toHaveValue(
+    "All Dubai",
+  );
+  await expect(page.locator(".kpi-value").first()).toHaveText("4,044");
+  await page
+    .getByLabel("PROPERTY TYPE", { exact: true })
+    .selectOption("Villas and townhouses");
+  await page
+    .getByLabel("LOCATION", { exact: true })
+    .selectOption("Wadi Al Safa 7");
+  await expect(page.locator(".kpi-value").first()).toHaveText("220");
+  await expect(page.locator(".kpi-value").nth(1)).toHaveText("—");
+  await page
+    .getByLabel("PROPERTY TYPE", { exact: true })
+    .selectOption("Apartments");
+  await expect(page.getByLabel("LOCATION", { exact: true })).toHaveValue(
+    "All Dubai",
+  );
+  await page.getByRole("button", { name: "Monthly report" }).click();
+  await expect(
+    page.getByRole("button", { name: "Download supplied data (CSV)" }),
+  ).toBeEnabled();
+  await expect(page.getByRole("dialog")).toContainText(
+    "Contract ranking: 10 areas",
+  );
+  await page.keyboard.press("Escape");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole("button", { name: "Rental value", exact: true }).click();
+  await expect(page.locator(".recharts-bar-rectangle path")).toHaveCount(7);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  expect(errors).toEqual([]);
 });

@@ -182,8 +182,63 @@ export const rentalAreaMetrics: readonly AreaMetric[] = [
     valueRank: valueIndex < 0 ? null : valueIndex + 1,
   };
 });
-export function areasFor(type: TransactionType) {
-  return type === "Sales" ? areaMetrics : rentalAreaMetrics;
+const rentalPropertyRows: Record<string, [string, number, number | null][]> = {
+  Apartments: [
+    ["Al Barsha South 4", 3234, 218_400_000],
+    ["Business Bay", 2259, 223_800_000],
+    ["Marsa Dubai", 2246, 312_900_000],
+    ["Jebel Ali 1", 2131, 142_600_000],
+    ["Al Warsan 1", 1647, null],
+    ["Al Merkadh", 1608, 131_300_000],
+    ["Al Barsha South 3", 1495, 99_200_000],
+    ["Nadd Hessa", 1181, null],
+    ["Burj Khalifa", 1111, 375_600_000],
+    ["Al Nahda 2", 937, null],
+  ],
+  "Villas and townhouses": [
+    ["Madinat Hind 4", 468, 46_700_000],
+    ["Mirdif", 452, 57_900_000],
+    ["Wadi Al Safa 5", 395, 77_000_000],
+    ["Al Thanayah 4", 272, 76_900_000],
+    ["Hadaeq Sheikh Mohammed Bin Rashid", 266, 93_900_000],
+    ["Jebel Ali 1", 231, 54_600_000],
+    ["Wadi Al Safa 7", 220, null],
+    ["Al Yelayiss 2", 187, null],
+    ["Al Hebiah 5", 177, null],
+    ["Madinat Al Mataar", 163, null],
+  ],
+};
+export function hasRentalPropertyData(propertyType: string) {
+  return Object.hasOwn(rentalPropertyRows, propertyType);
+}
+function rentalPropertyAreas(propertyType: string): AreaMetric[] {
+  const rows = hasRentalPropertyData(propertyType)
+    ? rentalPropertyRows[propertyType]
+    : [];
+  const byValue = rows
+    .filter((row) => row[2] !== null)
+    .toSorted((a, b) => b[2]! - a[2]!);
+  return rows.map(([name, transactions, salesValue], index) => ({
+    name,
+    transactions,
+    salesValue,
+    transactionsMom: null,
+    volumeRank: index + 1,
+    valueRank:
+      salesValue === null
+        ? null
+        : byValue.findIndex((row) => row[0] === name) + 1,
+  }));
+}
+export function areasFor(
+  type: TransactionType,
+  propertyType = allPropertyTypes,
+) {
+  return type === "Sales"
+    ? areaMetrics
+    : propertyType === allPropertyTypes
+      ? rentalAreaMetrics
+      : rentalPropertyAreas(propertyType);
 }
 export function money(value: number) {
   return value >= 1e9 ? `${billions(value)}bn` : `${(value / 1e6).toFixed(1)}m`;
@@ -203,7 +258,7 @@ export function snapshotFor(
   type: TransactionType = "Sales",
   propertyType = allPropertyTypes,
 ): Snapshot {
-  if (propertyType !== allPropertyTypes) {
+  if (propertyType !== allPropertyTypes && type === "Sales") {
     const row =
       type === "Sales" && area === allAreas
         ? propertyTypes.find((r) => r.name === propertyType)
@@ -222,7 +277,7 @@ export function snapshotFor(
     };
   }
   if (area === allAreas && type === "Sales") return market;
-  const row = areasFor(type).find((r) => r.name === area);
+  const row = areasFor(type, propertyType).find((r) => r.name === area);
   return {
     transactions: row?.transactions ?? null,
     salesValue: row?.salesValue ?? null,
@@ -237,10 +292,12 @@ export function areaRanking(
   metric: "volume" | "value",
   area = allAreas,
   type: TransactionType = "Sales",
+  propertyType = allPropertyTypes,
 ): AreaMetric[] {
-  if (area !== allAreas) return areasFor(type).filter((r) => r.name === area);
+  if (area !== allAreas)
+    return areasFor(type, propertyType).filter((r) => r.name === area);
   const rank = metric === "volume" ? "volumeRank" : "valueRank";
-  return areasFor(type)
+  return areasFor(type, propertyType)
     .filter((r) => r[rank] !== null)
     .sort((a, b) => a[rank]! - b[rank]!);
 }
@@ -271,7 +328,9 @@ export function exportCsv(
         reportingPeriod.start,
         reportingPeriod.end,
         reportingPeriod.dataThrough,
-        scope,
+        type === "Rentals" && propertyType !== allPropertyTypes
+          ? `${scope} · ${propertyType}`
+          : scope,
         name,
         value,
         unit,
@@ -282,7 +341,7 @@ export function exportCsv(
         "Supplied by Propwise",
       ]);
   };
-  if (propertyType !== allPropertyTypes) {
+  if (propertyType !== allPropertyTypes && type === "Sales") {
     const snapshot = snapshotFor(area, type, propertyType);
     const scope = `${area} · ${propertyType}`;
     add(
@@ -309,7 +368,7 @@ export function exportCsv(
     }
     return csvRows(rows);
   }
-  const snapshot = snapshotFor(area, type);
+  const snapshot = snapshotFor(area, type, propertyType);
   add(
     area,
     type === "Sales" ? "Sales transactions" : "Registered rental contracts",
@@ -402,7 +461,7 @@ export function exportCsv(
     }
   }
   if (area === allAreas && type === "Rentals") {
-    for (const row of rentalAreaMetrics) {
+    for (const row of areasFor("Rentals", propertyType)) {
       add(row.name, "Registered rental contracts", row.transactions, "rentals");
       add(row.name, "Rental value", row.salesValue, "AED");
       add(

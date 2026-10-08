@@ -36,6 +36,7 @@ import { Button } from "./ui/button";
 import {
   allAreas,
   allPropertyTypes,
+  hasRentalPropertyData,
   areasFor,
   propertyTypes,
   money,
@@ -135,21 +136,26 @@ export function Dashboard() {
   const rentals = transaction === "Rentals";
   const [propertyType, setPropertyType] = useState(allPropertyTypes);
   const isProperty = propertyType !== allPropertyTypes;
+  const rentalAreaView =
+    rentals && (!isProperty || hasRentalPropertyData(propertyType));
   const property = propertyTypes.find((row) => row.name === propertyType);
   const propertyShare =
     transaction === "Sales" ? (property?.share ?? null) : null;
   function selectProperty(value: string) {
     setPropertyType(value);
-    if (value !== allPropertyTypes) {
+    if (
+      (!rentals && value !== allPropertyTypes) ||
+      (area !== allAreas &&
+        !areasFor(transaction, value).some((row) => row.name === area))
+    )
       setArea(allAreas);
-      setMetric("transactions");
-    }
+    if (value !== allPropertyTypes) setMetric("transactions");
   }
   function selectArea(value: string) {
     setArea(value);
-    setPropertyType(allPropertyTypes);
+    if (!rentalAreaView) setPropertyType(allPropertyTypes);
   }
-  const areaMetrics = areasFor(transaction);
+  const areaMetrics = areasFor(transaction, propertyType);
   const [area, setArea] = useState(allAreas),
     [metric, setMetric] = useState<"transactions" | "salesValue">(
       "transactions",
@@ -191,29 +197,45 @@ export function Dashboard() {
     };
   }, [report]);
   const stats = snapshotFor(area, transaction, propertyType),
-    rankings = isProperty ? [] : areaRanking(rankBy, area, transaction),
+    rankings =
+      isProperty && !rentalAreaView
+        ? []
+        : areaRanking(rankBy, area, transaction, propertyType),
     isCity = area === allAreas;
   const chartValue = stats[metric],
     chartMom =
       metric === "transactions" ? stats.transactionsMom : stats.salesValueMom;
   const chartData =
-    rentals && isCity && !isProperty
+    rentalAreaView && isCity
       ? areaRanking(
           metric === "transactions" ? "volume" : "value",
           allAreas,
           transaction,
+          propertyType,
         ).map((row) => ({ month: row.name, value: row[metric] }))
       : chartValue === null
         ? []
         : [{ month: "September", value: chartValue }];
   const hasChartData = chartData.length > 0;
-  const rentalCountLeader = areaRanking("volume", allAreas, "Rentals")[0];
-  const rentalValueLeader = areaRanking("value", allAreas, "Rentals")[0];
+  const rentalCountLeader = areaRanking(
+    "volume",
+    allAreas,
+    "Rentals",
+    propertyType,
+  )[0];
+  const rentalValueLeader = areaRanking(
+    "value",
+    allAreas,
+    "Rentals",
+    propertyType,
+  )[0];
   const rentalCount = isCity
-    ? rentalCountLeader.transactions
+    ? (rentalCountLeader?.transactions ?? null)
     : stats.transactions;
-  const rentalValue = isCity ? rentalValueLeader.salesValue : stats.salesValue;
-  const rentalValueCoverage = areasFor("Rentals").filter(
+  const rentalValue = isCity
+    ? (rentalValueLeader?.salesValue ?? null)
+    : stats.salesValue;
+  const rentalValueCoverage = areasFor("Rentals", propertyType).filter(
     (row) => row.salesValue !== null,
   ).length;
   const selected = areaMetrics.find((row) => row.name === area);
@@ -229,25 +251,28 @@ export function Dashboard() {
     a.click();
     URL.revokeObjectURL(url);
   }
-  const insight = isProperty
-    ? stats.transactions === null
-      ? `${propertyType} ${transaction.toLowerCase()} figures were not supplied separately for September 2026.`
-      : `${propertyType} accounted for ${number(stats.transactions)} Dubai-wide sales (${propertyShare}% reported share). Area breakdowns, sales values, and median prices for this category were not supplied.`
-    : rentals
-      ? isCity
-        ? "Business Bay led rental contract activity with 4,044 contracts (+10.1% versus August), while Burj Khalifa led rental value at AED 455.4m. Dubai-wide rental totals and rental property-type breakdowns were not supplied."
-        : `${area}: ${stats.transactions === null ? "rental contract count not supplied" : number(stats.transactions) + " registered rental contracts"}${stats.transactionsMom === null ? "" : " (" + (stats.transactionsMom > 0 ? "+" : "") + stats.transactionsMom + "% versus August)"}${stats.salesValue === null ? "; rental value not supplied" : "; rental value AED " + money(stats.salesValue)}.`
-      : isCity
-        ? "September recorded fewer transactions but higher total sales value and stronger median property pricing than August."
-        : selected?.name === "Al Hebiah 1"
-          ? "Al Hebiah 1 recorded 408 sales, with transaction activity up 113.6% versus August — the strongest supplied increase among the busiest areas."
-          : selected?.name === "Palm Jumeirah"
-            ? "Palm Jumeirah recorded 72 transactions worth AED 1.37bn, reflecting its premium pricing."
-            : selected?.name === "Madinat Al Mataar"
-              ? "Madinat Al Mataar led the supplied transaction-volume ranking with 928 sales."
-              : selected?.name === "Business Bay"
-                ? "Business Bay led the supplied sales-value ranking with AED 1.50bn across 437 transactions."
-                : `${area} has ${selected?.transactions !== null && selected?.transactions !== undefined ? number(selected.transactions) + " supplied sales transactions" : "no supplied transaction count"}${selected?.salesValue ? " and AED " + billions(selected.salesValue) + "bn in sales value" : ""}. Additional price and historical breakdowns were not supplied.`;
+  const insight =
+    isProperty && !rentalAreaView
+      ? stats.transactions === null
+        ? `${propertyType} ${transaction.toLowerCase()} figures were not supplied separately for September 2026.`
+        : `${propertyType} accounted for ${number(stats.transactions)} Dubai-wide sales (${propertyShare}% reported share). Area breakdowns, sales values, and median prices for this category were not supplied.`
+      : rentals
+        ? isCity
+          ? isProperty
+            ? `${propertyType}: ${rentalCountLeader?.name} led the supplied contract ranking with ${number(rentalCountLeader?.transactions ?? 0)} contracts. ${rentalValueLeader?.name} recorded the highest supplied value at AED ${money(rentalValueLeader?.salesValue ?? 0)} among these ranked areas. Category totals, shares and monthly changes were not supplied.`
+            : "Business Bay led rental contract activity with 4,044 contracts (+10.1% versus August), while Burj Khalifa led rental value at AED 455.4m. Dubai-wide rental totals were not supplied."
+          : `${area}: ${stats.transactions === null ? "rental contract count not supplied" : number(stats.transactions) + " registered rental contracts"}${stats.transactionsMom === null ? "" : " (" + (stats.transactionsMom > 0 ? "+" : "") + stats.transactionsMom + "% versus August)"}${stats.salesValue === null ? "; rental value not supplied" : "; rental value AED " + money(stats.salesValue)}.`
+        : isCity
+          ? "September recorded fewer transactions but higher total sales value and stronger median property pricing than August."
+          : selected?.name === "Al Hebiah 1"
+            ? "Al Hebiah 1 recorded 408 sales, with transaction activity up 113.6% versus August — the strongest supplied increase among the busiest areas."
+            : selected?.name === "Palm Jumeirah"
+              ? "Palm Jumeirah recorded 72 transactions worth AED 1.37bn, reflecting its premium pricing."
+              : selected?.name === "Madinat Al Mataar"
+                ? "Madinat Al Mataar led the supplied transaction-volume ranking with 928 sales."
+                : selected?.name === "Business Bay"
+                  ? "Business Bay led the supplied sales-value ranking with AED 1.50bn across 437 transactions."
+                  : `${area} has ${selected?.transactions !== null && selected?.transactions !== undefined ? number(selected.transactions) + " supplied sales transactions" : "no supplied transaction count"}${selected?.salesValue ? " and AED " + billions(selected.salesValue) + "bn in sales value" : ""}. Additional price and historical breakdowns were not supplied.`;
   return (
     <Shell>
       <main className="dashboard">
@@ -343,17 +368,19 @@ export function Dashboard() {
           </Button>
         </section>
         <p className="filter-help">
-          {isProperty
-            ? `${propertyType} · Dubai-wide ${transaction.toLowerCase()}. Selecting a property type returns Location to All Dubai; selecting an area clears the property filter because no combined breakdown was supplied.`
-            : "Select a property type to explore Dubai-wide figures, or select an area for its supplied sales/rental metrics. Penthouse and rental property-type figures were not supplied separately."}
+          {rentalAreaView && isProperty
+            ? `${propertyType} rentals · supplied area leaderboard. Select an area to view its category contracts and value. Missing values are shown as —; category totals and monthly changes were not supplied.`
+            : isProperty
+              ? `${propertyType} · Dubai-wide ${transaction.toLowerCase()}. Selecting a property type returns Location to All Dubai; selecting an area clears the property filter because no combined breakdown was supplied.`
+              : "Select a property type to explore Dubai-wide figures, or select an area for its supplied sales/rental metrics. Apartment and villa/townhouse rental area breakdowns are available. Penthouse figures were not supplied separately."}
         </p>
-        {isProperty && stats.transactions === null && (
+        {isProperty && !rentalAreaView && stats.transactions === null && (
           <div className="source-banner" role="status">
             <Info size={16} />
             <span>
               <strong>{propertyType}: data not supplied.</strong>{" "}
               {rentals
-                ? "No rental property-type breakdown was provided."
+                ? "No rental breakdown was provided for this property type."
                 : "The supplied sales split does not separate penthouses."}
             </span>
           </div>
@@ -371,7 +398,9 @@ export function Dashboard() {
           <span className="section-caption">
             <span className="status-dot" />
             {isProperty
-              ? `Dubai-wide ${transaction.toLowerCase()} · ${propertyType}`
+              ? rentalAreaView
+                ? `${isCity ? "Supplied area leaderboard" : area} · ${propertyType}`
+                : `Dubai-wide ${transaction.toLowerCase()} · ${propertyType}`
               : isCity
                 ? rentals
                   ? "Supplied area leaderboard · no Dubai-wide rental totals"
@@ -380,7 +409,7 @@ export function Dashboard() {
           </span>
         </div>
         <section className="kpi-grid" aria-label="Market key metrics">
-          {isProperty ? (
+          {isProperty && !rentalAreaView ? (
             <>
               <Kpi
                 title={
@@ -434,12 +463,12 @@ export function Dashboard() {
                 icon={<Building2 size={18} />}
                 delta={
                   isCity
-                    ? rentalCountLeader.transactionsMom
+                    ? (rentalCountLeader?.transactionsMom ?? null)
                     : stats.transactionsMom
                 }
                 subtitle={
                   isCity
-                    ? `${rentalCountLeader.name} · supplied area leader`
+                    ? `${rentalCountLeader?.name} · supplied area leader`
                     : area
                 }
               />
@@ -451,14 +480,15 @@ export function Dashboard() {
                 delta={null}
                 subtitle={
                   isCity
-                    ? `${rentalValueLeader.name} · supplied area leader`
+                    ? `${rentalValueLeader?.name} · supplied area leader`
                     : area
                 }
               />
               <Kpi
                 title="Areas ranked by rental contracts"
                 value={String(
-                  areaRanking("volume", allAreas, "Rentals").length,
+                  areaRanking("volume", allAreas, "Rentals", propertyType)
+                    .length,
                 )}
                 icon={<MapPin size={18} />}
                 delta={null}
@@ -469,7 +499,11 @@ export function Dashboard() {
                 value={String(rentalValueCoverage)}
                 icon={<Layers3 size={18} />}
                 delta={null}
-                subtitle="top ten rental-value ranking"
+                subtitle={
+                  isProperty
+                    ? "known values among listed category areas"
+                    : "top ten rental-value ranking"
+                }
               />
             </>
           ) : (
@@ -529,7 +563,7 @@ export function Dashboard() {
             <div className="panel-heading">
               <div>
                 <h2>
-                  {rentals && isCity && !isProperty
+                  {rentalAreaView && isCity
                     ? "Rental activity by supplied area"
                     : "September market activity"}
                 </h2>
@@ -575,15 +609,13 @@ export function Dashboard() {
             </div>
             <div
               className="trend-chart"
-              style={
-                rentals && isCity && !isProperty ? { height: 340 } : undefined
-              }
+              style={rentalAreaView && isCity ? { height: 340 } : undefined}
               role={hasChartData ? "img" : "status"}
               aria-label={
                 !hasChartData
                   ? undefined
-                  : rentals && isCity && !isProperty
-                    ? "September 2026 rental activity by supplied area"
+                  : rentalAreaView && isCity
+                    ? `September 2026 rental activity by supplied area${isProperty ? " · " + propertyType : ""}`
                     : `September 2026 ${metric === "transactions" ? "transactions" : rentals ? "rental value" : "sales value"} for ${area}${isProperty ? " · " + propertyType : ""}: ${metric === "transactions" ? number(chartValue!) : "AED " + billions(chartValue!) + " billion"}`
               }
             >
@@ -606,9 +638,7 @@ export function Dashboard() {
                   <BarChart
                     data={chartData}
                     layout={
-                      rentals && isCity && !isProperty
-                        ? "vertical"
-                        : "horizontal"
+                      rentalAreaView && isCity ? "vertical" : "horizontal"
                     }
                     margin={{ top: 15, right: 24, left: 4, bottom: 0 }}
                   >
@@ -630,17 +660,13 @@ export function Dashboard() {
                       stroke="#e9edf7"
                     />
                     <XAxis
-                      dataKey={
-                        rentals && isCity && !isProperty ? undefined : "month"
-                      }
-                      type={
-                        rentals && isCity && !isProperty ? "number" : "category"
-                      }
+                      dataKey={rentalAreaView && isCity ? undefined : "month"}
+                      type={rentalAreaView && isCity ? "number" : "category"}
                       axisLine={false}
                       tickLine={false}
                       tick={{ fill: "#748298", fontSize: 11 }}
                       tickFormatter={
-                        rentals && isCity && !isProperty
+                        rentalAreaView && isCity
                           ? (value) =>
                               metric === "transactions"
                                 ? number(value)
@@ -649,21 +675,15 @@ export function Dashboard() {
                       }
                     />
                     <YAxis
-                      dataKey={
-                        rentals && isCity && !isProperty ? "month" : undefined
-                      }
-                      interval={
-                        rentals && isCity && !isProperty ? 0 : undefined
-                      }
-                      type={
-                        rentals && isCity && !isProperty ? "category" : "number"
-                      }
+                      dataKey={rentalAreaView && isCity ? "month" : undefined}
+                      interval={rentalAreaView && isCity ? 0 : undefined}
+                      type={rentalAreaView && isCity ? "category" : "number"}
                       domain={[0, "auto"]}
                       axisLine={false}
                       tickLine={false}
                       tick={{ fill: "#748298", fontSize: 11 }}
                       tickFormatter={
-                        rentals && isCity && !isProperty
+                        rentalAreaView && isCity
                           ? (value: string) =>
                               value.length > 22
                                 ? value.slice(0, 21) + "…"
@@ -677,7 +697,7 @@ export function Dashboard() {
                                   ? `${value / 1e6}m`
                                   : `${value / 1e9}bn`
                       }
-                      width={rentals && isCity && !isProperty ? 145 : 50}
+                      width={rentalAreaView && isCity ? 145 : 50}
                     />
                     <Tooltip
                       cursor={{ fill: "#f5f7ff" }}
@@ -694,7 +714,7 @@ export function Dashboard() {
                             : "Sales value",
                       ]}
                       labelFormatter={(label) =>
-                        `September 2026 · ${rentals && isCity && !isProperty ? label : area}`
+                        `September 2026 · ${rentalAreaView && isCity ? label : area}`
                       }
                       contentStyle={{
                         borderRadius: 10,
@@ -723,7 +743,7 @@ export function Dashboard() {
               </span>
             </div>
           </section>
-          {isProperty ? (
+          {isProperty && !rentalAreaView ? (
             <section className="panel mix-panel">
               <div className="panel-heading">
                 <div>
@@ -766,19 +786,19 @@ export function Dashboard() {
               </div>
               <div className="property-share">
                 <strong>
-                  {areasFor("Rentals").length} <small>distinct areas</small>
+                  {areasFor("Rentals", propertyType).length}{" "}
+                  <small>distinct areas</small>
                 </strong>
                 <p>
-                  Two top-ten lists: registered contract counts and August
-                  comparisons for ten areas, plus rental values for ten areas.
-                  Five areas appear only in the value list; their contract
-                  counts were not supplied.
+                  {isProperty
+                    ? `Contract counts are supplied for ten ${propertyType.toLowerCase()} areas, with rental values for ${rentalValueCoverage}. Category totals, market shares and monthly changes were not supplied.`
+                    : "Two top-ten lists: registered contract counts and August comparisons for ten areas, plus rental values for ten areas. Five areas appear only in the value list; their contract counts were not supplied."}
                 </p>
               </div>
               <div className="mix-note">
-                Dubai-wide rental totals, rental property types, rental medians,
-                and rental-value comparisons were not supplied. No totals are
-                inferred from this partial list.
+                Dubai-wide rental totals, rental medians, rental-value
+                comparisons, and rental property-type shares were not supplied.
+                No totals are inferred from this partial list.
               </div>
             </section>
           ) : (
@@ -851,22 +871,26 @@ export function Dashboard() {
               <div>
                 <h2>Where Dubai is moving</h2>
                 <p>
-                  {isProperty
+                  {isProperty && !rentalAreaView
                     ? "Area breakdown unavailable for this property type"
                     : isCity
                       ? rankBy === "volume"
                         ? rentals
-                          ? "Top 10 areas by registered rental contracts"
+                          ? isProperty
+                            ? `Top 10 ${propertyType.toLowerCase()} areas by rental contracts`
+                            : "Top 10 areas by registered rental contracts"
                           : "Top 10 by registered transaction count"
                         : rentals
-                          ? "Top 10 areas by registered rental value"
+                          ? isProperty
+                            ? `Rental value among supplied ${propertyType.toLowerCase()} areas`
+                            : "Top 10 areas by registered rental value"
                           : "Top 5 by total transaction value"
                       : `Supplied figures for ${area}`}
                 </p>
               </div>
               <MapPin size={18} className="text-slate-400" />
             </div>
-            {isProperty ? (
+            {isProperty && !rentalAreaView ? (
               <div className="property-share">
                 <p>
                   Area × property-type data was not supplied. The city-wide{" "}
@@ -951,7 +975,7 @@ export function Dashboard() {
                               <div className="table-bar">
                                 <span
                                   style={{
-                                    width: `${(row.transactions / (rentals ? 4044 : 928)) * 100}%`,
+                                    width: `${(row.transactions / (rentals ? Math.max(...areaMetrics.map((r) => r.transactions ?? 0), 1) : 928)) * 100}%`,
                                   }}
                                 />
                               </div>
@@ -1010,7 +1034,7 @@ export function Dashboard() {
                   </h2>
                   <p>
                     {rentals
-                      ? "Breakdown unavailable"
+                      ? "Apartment and villa/townhouse area breakdowns"
                       : "Dubai-wide context · not filtered by area"}
                   </p>
                 </div>
@@ -1019,9 +1043,31 @@ export function Dashboard() {
               {rentals ? (
                 <div className="property-share">
                   <p>
-                    Rental property-type counts and shares were not supplied.
-                    The sales split does not describe rental activity.
+                    Select a rental property type to explore its area
+                    leaderboard. City-wide rental category totals and shares
+                    were not supplied.
                   </p>
+                  {["Apartments", "Villas and townhouses"].map((name) => (
+                    <div className="property-type-row" key={name}>
+                      <button
+                        className="property-type-button"
+                        aria-pressed={propertyType === name}
+                        onClick={() => selectProperty(name)}
+                      >
+                        {name}
+                        <ArrowUpRight size={12} />
+                      </button>
+                      <p>
+                        10 ranked areas ·{" "}
+                        {
+                          areasFor("Rentals", name).filter(
+                            (r) => r.salesValue !== null,
+                          ).length
+                        }{" "}
+                        supplied rental values
+                      </p>
+                    </div>
+                  ))}
                 </div>
               ) : (
                 <>
@@ -1134,13 +1180,14 @@ export function Dashboard() {
           <p>
             Area rankings are partial and sales and rentals are separate. Rental
             totals are not inferred from the leaderboard. Property-type figures
-            describe Dubai-wide sales; no area × property-type ×
-            transaction-type matrix was supplied. Median prices are not
-            averages. No absolute August series, year-over-year comparisons,
-            developer breakdown, or area-level median prices were supplied.
-            Small-area price-per-square-foot rankings should be treated
-            cautiously where only one to four transactions are recorded; those
-            rankings are not displayed here.
+            describe Dubai-wide sales and partial apartment/villa rental area
+            leaderboards. Sales area-by-property breakdowns, other rental
+            categories, and a complete transaction-type matrix were not
+            supplied. Median prices are not averages. No absolute August series,
+            year-over-year comparisons, developer breakdown, or area-level
+            median prices were supplied. Small-area price-per-square-foot
+            rankings should be treated cautiously where only one to four
+            transactions are recorded; those rankings are not displayed here.
           </p>
         </section>
         <section className="newsletter" id="decode">
@@ -1227,26 +1274,44 @@ export function Dashboard() {
               {isProperty && ` · ${propertyType}`} · {transaction}, 1–30
               September. Data through 6 October 2026, supplied by Propwise.
             </p>
-            <div className="report-summary">
-              <span>
-                {rentals ? "Registered rental contracts" : "Registered sales"}:{" "}
-                {stats.transactions === null
-                  ? "Not supplied"
-                  : number(stats.transactions)}
-              </span>
-              <span>
-                {rentals ? "Rental value" : "Sales value"}:{" "}
-                {stats.salesValue === null
-                  ? "Not supplied"
-                  : `AED ${money(stats.salesValue)}`}
-              </span>
-              <span>
-                {rentals ? "Rental property types" : "Median price / sq ft"}:{" "}
-                {stats.medianPriceSqft === null
-                  ? "Not supplied"
-                  : `AED ${number(stats.medianPriceSqft)}`}
-              </span>
-            </div>
+            {rentals && isCity && rentalAreaView ? (
+              <div className="report-summary">
+                <span>
+                  Contract ranking:{" "}
+                  {
+                    areaRanking("volume", allAreas, "Rentals", propertyType)
+                      .length
+                  }{" "}
+                  areas
+                </span>
+                <span>Rental values supplied: {rentalValueCoverage} areas</span>
+                <span>Property type: {propertyType}</span>
+              </div>
+            ) : (
+              <div className="report-summary">
+                <span>
+                  {rentals ? "Registered rental contracts" : "Registered sales"}
+                  :{" "}
+                  {stats.transactions === null
+                    ? "Not supplied"
+                    : number(stats.transactions)}
+                </span>
+                <span>
+                  {rentals ? "Rental value" : "Sales value"}:{" "}
+                  {stats.salesValue === null
+                    ? "Not supplied"
+                    : `AED ${money(stats.salesValue)}`}
+                </span>
+                <span>
+                  {rentals ? "Property type" : "Median price / sq ft"}:{" "}
+                  {rentals
+                    ? propertyType
+                    : stats.medianPriceSqft === null
+                      ? "Not supplied"
+                      : `AED ${number(stats.medianPriceSqft)}`}
+                </span>
+              </div>
+            )}
             <p>
               {rentals &&
                 isCity &&
@@ -1257,7 +1322,9 @@ export function Dashboard() {
             </p>
             <Button
               onClick={download}
-              disabled={isProperty && stats.transactions === null}
+              disabled={
+                isProperty && !rentalAreaView && stats.transactions === null
+              }
             >
               <ArrowDownToLine size={16} /> Download supplied data (CSV)
             </Button>

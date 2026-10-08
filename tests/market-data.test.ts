@@ -230,3 +230,101 @@ test("updated rental ranks, values, comparisons and unknown contract counts matc
     ),
   );
 });
+
+test("rental property area data remains separate from all-property rentals and city totals", () => {
+  const apartments = areaRanking("volume", allAreas, "Rentals", "Apartments");
+  assert.equal(apartments.length, 10);
+  assert.equal(apartments[0].name, "Al Barsha South 4");
+  assert.deepEqual(
+    apartments.map((r) => r.transactions),
+    [3234, 2259, 2246, 2131, 1647, 1608, 1495, 1181, 1111, 937],
+  );
+  assert.deepEqual(
+    apartments.map((r) => r.salesValue),
+    [
+      218_400_000,
+      223_800_000,
+      312_900_000,
+      142_600_000,
+      null,
+      131_300_000,
+      99_200_000,
+      null,
+      375_600_000,
+      null,
+    ],
+  );
+  const aptValues = areaRanking("value", allAreas, "Rentals", "Apartments");
+  assert.equal(aptValues.length, 7);
+  assert.equal(aptValues[0].name, "Burj Khalifa");
+  const bay = snapshotFor("Business Bay", "Rentals", "Apartments");
+  assert.equal(bay.transactions, 2259);
+  assert.equal(bay.salesValue, 223_800_000);
+  assert.equal(bay.transactionsMom, null);
+  assert.equal(snapshotFor("Business Bay", "Rentals").transactions, 4044);
+  assert.equal(
+    snapshotFor(allAreas, "Rentals", "Apartments").transactions,
+    null,
+  );
+  const villas = areaRanking(
+    "volume",
+    allAreas,
+    "Rentals",
+    "Villas and townhouses",
+  );
+  assert.deepEqual(
+    villas.map((r) => r.transactions),
+    [468, 452, 395, 272, 266, 231, 220, 187, 177, 163],
+  );
+  assert.deepEqual(
+    villas.map((r) => r.salesValue),
+    [
+      46_700_000,
+      57_900_000,
+      77_000_000,
+      76_900_000,
+      93_900_000,
+      54_600_000,
+      null,
+      null,
+      null,
+      null,
+    ],
+  );
+  const villaValues = areaRanking(
+    "value",
+    allAreas,
+    "Rentals",
+    "Villas and townhouses",
+  );
+  assert.equal(villaValues.length, 6);
+  assert.equal(villaValues[0].name, "Hadaeq Sheikh Mohammed Bin Rashid");
+  assert.equal(
+    snapshotFor("Jebel Ali 1", "Rentals", "Villas and townhouses").transactions,
+    231,
+  );
+  assert.equal(
+    snapshotFor("Al Warsan 1", "Rentals", "Apartments").salesValue,
+    null,
+  );
+  const csv = exportCsv(allAreas, "Rentals", "Apartments");
+  assert.ok(
+    csv.includes(
+      '"Business Bay · Apartments","Registered rental contracts","2259"',
+    ),
+  );
+  assert.ok(
+    csv.includes('"Burj Khalifa · Apartments","Rental value","375600000"'),
+  );
+  assert.ok(!csv.includes("Rental contracts MoM"));
+  assert.ok(!csv.includes("4044"));
+  assert.ok(!csv.includes("Madinat Hind 4"));
+  const area = exportCsv("Jebel Ali 1", "Rentals", "Villas and townhouses");
+  assert.ok(area.includes('"231","rentals"'));
+  assert.ok(area.includes('"54600000","AED"'));
+  assert.ok(!area.includes("Apartments"));
+  assert.equal(
+    areaRanking("volume", allAreas, "Rentals", "Penthouse").length,
+    0,
+  );
+});
