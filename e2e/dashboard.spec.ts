@@ -31,7 +31,7 @@ test("supplied September totals, median labels, shares, and branded logo render 
   await expect(
     page.getByLabel("PROPERTY TYPE", { exact: true }),
   ).toBeDisabled();
-  await expect(page.getByLabel("TRANSACTION", { exact: true })).toBeDisabled();
+  await expect(page.getByLabel("TRANSACTION", { exact: true })).toBeEnabled();
   await expect(page.locator("tbody tr")).toHaveCount(10);
   await expect(page.locator("tbody tr").first()).toContainText(
     "Madinat Al Mataar",
@@ -163,4 +163,102 @@ test("internal pages still deny visitors including forged role cookies", async (
       page.getByRole("heading", { name: "Market Data Manager." }),
     ).toHaveCount(0);
   }
+});
+
+test("sales property split and added area values match the supplied figures", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const split = page.locator(".property-panel");
+  for (const text of [
+    "8,952 sales",
+    "972 sales",
+    "695 sales",
+    "856 sales",
+    "100.1%",
+    "No separate penthouse",
+  ])
+    await expect(split).toContainText(text);
+  await page
+    .getByLabel("LOCATION", { exact: true })
+    .selectOption("Wadi Al Safa 5");
+  await expect(page.locator("tbody tr")).toContainText("859.3m");
+  await expect(split).toContainText(
+    "Dubai-wide context · not filtered by area",
+  );
+});
+test("rental view renders supplied area data, resets incompatible areas, and excludes sales context", async ({
+  page,
+}) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  await page.goto("/");
+  await page
+    .getByLabel("LOCATION", { exact: true })
+    .selectOption("Palm Jumeirah");
+  await page.getByLabel("TRANSACTION", { exact: true }).selectOption("Rentals");
+  await expect(page.getByLabel("LOCATION", { exact: true })).toHaveValue(
+    "All Dubai",
+  );
+  await expect(page.locator(".kpi-value").first()).toHaveText("4,044");
+  await expect(page.locator(".kpi-value").nth(1)).toHaveText("AED387.6m");
+  await expect(page.locator(".section-caption")).toContainText(
+    "no Dubai-wide rental totals",
+  );
+  await expect(page.locator("tbody tr")).toHaveCount(10);
+  await expect(page.locator(".recharts-bar-rectangle path")).toHaveCount(10);
+  await expect(
+    page.getByRole("heading", { name: "Off-plan vs. ready" }),
+  ).toHaveCount(0);
+  await expect(page.locator(".property-panel")).toContainText(
+    "Rental property-type counts and shares were not supplied",
+  );
+  await page
+    .getByRole("button", { name: "Rental value ranking", exact: true })
+    .click();
+  await expect(page.locator("tbody tr")).toHaveCount(5);
+  await expect(page.locator("tbody tr").nth(1)).toContainText("Marsa Dubai");
+  await page.getByRole("button", { name: "Rental value", exact: true }).click();
+  await expect(page.locator(".recharts-bar-rectangle path")).toHaveCount(5);
+  await page.getByLabel("LOCATION", { exact: true }).selectOption("Hor Al Anz");
+  await expect(page.locator(".kpi-value").first()).toHaveText("2,227");
+  await expect(page.locator(".kpi-value").nth(1)).toHaveText("—");
+  await expect(
+    page.getByText("This area metric was not supplied."),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Monthly report" }).click();
+  const pending = page.waitForEvent("download");
+  await page
+    .getByRole("button", { name: "Download supplied data (CSV)" })
+    .click();
+  const download = await pending;
+  expect(download.suggestedFilename()).toBe(
+    "propwise-september-2026-hor-al-anz-rentals.csv",
+  );
+  const csv = await readFile((await download.path())!, "utf8");
+  expect(csv).toContain('"2227","rentals"');
+  expect(csv).not.toContain("Sales value");
+  expect(csv).not.toContain("Median");
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Reset all filters" }).click();
+  await expect(page.getByLabel("TRANSACTION", { exact: true })).toHaveValue(
+    "Sales",
+  );
+  await expect(page.locator(".kpi-value").first()).toHaveText("11,475");
+  expect(errors).toEqual([]);
+});
+test("mobile rental chart and filters stay inside the viewport", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await page.getByLabel("TRANSACTION", { exact: true }).selectOption("Rentals");
+  await expect(
+    page.locator(".recharts-bar-rectangle path").first(),
+  ).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
 });

@@ -5,7 +5,7 @@ export const reportingPeriod = {
   start: "2026-09-01",
   end: "2026-09-30",
   dataThrough: "2026-10-06",
-  source: "DLD-registered sales",
+  source: "DLD-registered transactions",
   provenance:
     "Figures supplied by Propwise; not independently retrieved from DLD.",
 } as const;
@@ -27,6 +27,7 @@ export const market = {
 export type AreaMetric = {
   name: string;
   transactions: number | null;
+  /** AED value: sales or rentals depending on the selected dataset. */
   salesValue: number | null;
   transactionsMom: number | null;
   volumeRank: number | null;
@@ -68,7 +69,7 @@ export const areaMetrics: readonly AreaMetric[] = [
   {
     name: "Jebel Ali 1",
     transactions: 543,
-    salesValue: null,
+    salesValue: 1_260_000_000,
     transactionsMom: null,
     volumeRank: 5,
     valueRank: null,
@@ -76,7 +77,7 @@ export const areaMetrics: readonly AreaMetric[] = [
   {
     name: "Wadi Al Safa 5",
     transactions: 467,
-    salesValue: null,
+    salesValue: 859_300_000,
     transactionsMom: null,
     volumeRank: 6,
     valueRank: null,
@@ -100,7 +101,7 @@ export const areaMetrics: readonly AreaMetric[] = [
   {
     name: "Al Hebiah 1",
     transactions: 408,
-    salesValue: null,
+    salesValue: 826_500_000,
     transactionsMom: 113.6,
     volumeRank: 9,
     valueRank: null,
@@ -108,7 +109,7 @@ export const areaMetrics: readonly AreaMetric[] = [
   {
     name: "Al Khairan 1",
     transactions: 391,
-    salesValue: null,
+    salesValue: 1_100_000_000,
     transactionsMom: null,
     volumeRank: 10,
     valueRank: null,
@@ -131,6 +132,47 @@ export const areaMetrics: readonly AreaMetric[] = [
     valueRank: 4,
   },
 ];
+export type TransactionType = "Sales" | "Rentals";
+export const propertyTypes = [
+  { name: "Apartments", transactions: 8952, share: 78 },
+  { name: "Villas and townhouses", transactions: 972, share: 8.5 },
+  { name: "Land", transactions: 695, share: 6.1 },
+  { name: "Commercial and other", transactions: 856, share: 7.5 },
+] as const;
+const rentalRows: [string, number, number | null][] = [
+  ["Business Bay", 4044, 387_600_000],
+  ["Al Barsha South 4", 3399, 246_100_000],
+  ["Jebel Ali 1", 2657, 216_100_000],
+  ["Marsa Dubai", 2316, 346_400_000],
+  ["Hor Al Anz", 2227, null],
+  ["Al Khabaisi", 2221, null],
+  ["Al Warsan 1", 1977, null],
+  ["Al Murar", 1976, null],
+  ["Al Merkadh", 1676, 175_700_000],
+  ["Port Saeed", 1555, null],
+];
+const valueOrder = [...rentalRows]
+  .filter((r) => r[2] !== null)
+  .sort((a, b) => b[2]! - a[2]!);
+export const rentalAreaMetrics: readonly AreaMetric[] = rentalRows.map(
+  ([name, transactions, salesValue], i) => ({
+    name,
+    transactions,
+    salesValue,
+    transactionsMom: null,
+    volumeRank: i + 1,
+    valueRank:
+      salesValue === null
+        ? null
+        : valueOrder.findIndex((r) => r[0] === name) + 1,
+  }),
+);
+export function areasFor(type: TransactionType) {
+  return type === "Sales" ? areaMetrics : rentalAreaMetrics;
+}
+export function money(value: number) {
+  return value >= 1e9 ? `${billions(value)}bn` : `${(value / 1e6).toFixed(1)}m`;
+}
 export const allAreas = "All Dubai";
 export type Snapshot = {
   transactions: number | null;
@@ -141,9 +183,12 @@ export type Snapshot = {
   salesValueMom: number | null;
   medianPriceMom: number | null;
 };
-export function snapshotFor(area: string): Snapshot {
-  if (area === allAreas) return market;
-  const row = areaMetrics.find((r) => r.name === area);
+export function snapshotFor(
+  area: string,
+  type: TransactionType = "Sales",
+): Snapshot {
+  if (area === allAreas && type === "Sales") return market;
+  const row = areasFor(type).find((r) => r.name === area);
   return {
     transactions: row?.transactions ?? null,
     salesValue: row?.salesValue ?? null,
@@ -157,10 +202,11 @@ export function snapshotFor(area: string): Snapshot {
 export function areaRanking(
   metric: "volume" | "value",
   area = allAreas,
+  type: TransactionType = "Sales",
 ): AreaMetric[] {
-  if (area !== allAreas) return areaMetrics.filter((r) => r.name === area);
+  if (area !== allAreas) return areasFor(type).filter((r) => r.name === area);
   const rank = metric === "volume" ? "volumeRank" : "valueRank";
-  return areaMetrics
+  return areasFor(type)
     .filter((r) => r[rank] !== null)
     .sort((a, b) => a[rank]! - b[rank]!);
 }
@@ -172,7 +218,7 @@ export function number(value: number) {
 export function billions(value: number) {
   return (value / 1e9).toFixed(2);
 }
-export function exportCsv(area: string) {
+export function exportCsv(area: string, type: TransactionType = "Sales") {
   const rows: (string | number)[][] = [];
   const add = (
     scope: string,
@@ -196,9 +242,19 @@ export function exportCsv(area: string) {
         "Supplied by Propwise",
       ]);
   };
-  const snapshot = snapshotFor(area);
-  add(area, "Sales transactions", snapshot.transactions, "sales");
-  add(area, "Sales value", snapshot.salesValue, "AED");
+  const snapshot = snapshotFor(area, type);
+  add(
+    area,
+    `${type === "Sales" ? "Sales" : "Rental"} transactions`,
+    snapshot.transactions,
+    type.toLowerCase(),
+  );
+  add(
+    area,
+    `${type === "Sales" ? "Sales" : "Rental"} value`,
+    snapshot.salesValue,
+    "AED",
+  );
   add(area, "Median property price", snapshot.medianPrice, "AED");
   add(area, "Median price per sqft", snapshot.medianPriceSqft, "AED/sqft");
   add(
@@ -222,7 +278,7 @@ export function exportCsv(area: string) {
     "percent",
     "vs August 2026",
   );
-  if (area === allAreas) {
+  if (area === allAreas && type === "Sales") {
     add(allAreas, "Off-plan transaction share", market.offPlanShare, "percent");
     add(allAreas, "Ready transaction share", market.readyShare, "percent");
     add(
@@ -260,6 +316,28 @@ export function exportCsv(area: string) {
         "percent",
         "vs August 2026",
       );
+    }
+  }
+  if (area === allAreas && type === "Sales") {
+    for (const row of propertyTypes) {
+      add(
+        `All Dubai · ${row.name}`,
+        "Sales transactions",
+        row.transactions,
+        "sales",
+      );
+      add(
+        `All Dubai · ${row.name}`,
+        "Reported sales transaction share",
+        row.share,
+        "percent",
+      );
+    }
+  }
+  if (area === allAreas && type === "Rentals") {
+    for (const row of rentalAreaMetrics) {
+      add(row.name, "Rental transactions", row.transactions, "rentals");
+      add(row.name, "Rental value", row.salesValue, "AED");
     }
   }
   const header = [

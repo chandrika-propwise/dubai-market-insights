@@ -6,6 +6,7 @@ import {
   areaRanking,
   exportCsv,
   market,
+  propertyTypes,
   reportingPeriod,
   snapshotFor,
 } from "../src/lib/market-data";
@@ -77,4 +78,68 @@ test("area CSV exports exclude city-wide figures and omit unavailable values", (
   assert.ok(
     city.includes('"Approximate gross villa rental yield","4.9","percent"'),
   );
+});
+
+test("new sales values preserve supplied precision", () => {
+  assert.equal(snapshotFor("Jebel Ali 1").salesValue, 1_260_000_000);
+  assert.equal(snapshotFor("Wadi Al Safa 5").salesValue, 859_300_000);
+  assert.equal(snapshotFor("Al Hebiah 1").salesValue, 826_500_000);
+  assert.equal(snapshotFor("Al Khairan 1").salesValue, 1_100_000_000);
+});
+test("rental area rankings and missing values are separate from sales and city totals", () => {
+  const volume = areaRanking("volume", allAreas, "Rentals");
+  assert.equal(volume.length, 10);
+  assert.equal(volume[0].name, "Business Bay");
+  assert.equal(volume[0].transactions, 4044);
+  assert.equal(snapshotFor("Business Bay", "Rentals").salesValue, 387_600_000);
+  assert.equal(snapshotFor("Business Bay").transactions, 437);
+  assert.equal(snapshotFor("Marsa Dubai", "Rentals").salesValue, 346_400_000);
+  assert.equal(snapshotFor("Hor Al Anz", "Rentals").salesValue, null);
+  assert.equal(snapshotFor(allAreas, "Rentals").transactions, null);
+  assert.equal(snapshotFor(allAreas, "Rentals").salesValue, null);
+  const values = areaRanking("value", allAreas, "Rentals");
+  assert.equal(values.length, 5);
+  assert.equal(values[1].name, "Marsa Dubai");
+  assert.equal(snapshotFor("Business Bay", "Rentals").medianPrice, null);
+});
+test("supplied property counts and reported rounded shares are preserved", () => {
+  assert.deepEqual(
+    propertyTypes.map((row) => row.transactions),
+    [8952, 972, 695, 856],
+  );
+  assert.deepEqual(
+    propertyTypes.map((row) => row.share),
+    [78, 8.5, 6.1, 7.5],
+  );
+  assert.equal(
+    propertyTypes.reduce((total, row) => total + row.transactions, 0),
+    market.transactions,
+  );
+  assert.equal(
+    propertyTypes.reduce((total, row) => total + row.share, 0),
+    100.1,
+  );
+  const csv = exportCsv(allAreas);
+  assert.ok(
+    csv.includes('"All Dubai · Apartments","Sales transactions","8952"'),
+  );
+});
+test("rental exports omit sales-only figures and never infer a city rental total", () => {
+  const csv = exportCsv(allAreas, "Rentals");
+  assert.ok(
+    csv.includes('"Business Bay","Rental transactions","4044","rentals"'),
+  );
+  assert.ok(csv.includes('"Marsa Dubai","Rental value","346400000","AED"'));
+  for (const metric of [
+    "Median property price",
+    "Off-plan",
+    "Sales value",
+    "8952",
+    '"All Dubai","Rentals transactions"',
+  ])
+    assert.ok(!csv.includes(metric));
+  const area = exportCsv("Hor Al Anz", "Rentals");
+  assert.ok(area.includes('"2227","rentals"'));
+  assert.ok(!area.includes('"Rental value"'));
+  assert.ok(!area.includes("Business Bay"));
 });

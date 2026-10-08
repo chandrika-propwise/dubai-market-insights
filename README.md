@@ -2,8 +2,9 @@
 
 The public dashboard now displays **September 2026 DLD-based figures supplied by Propwise**, replacing the earlier fictional demo records. It uses the supplied Propwise Brand Book 2026 identity. No live DLD connection, independent verification, or automatic monthly ingestion is implied.
 
-
 ![Propwise September 2026 dashboard preview](docs/september-2026-preview.png)
+
+![Propwise September 2026 rentals preview](docs/september-2026-rentals-preview.png)
 
 ## Run and review
 
@@ -23,20 +24,22 @@ Open http://localhost:3000. The server binds to `0.0.0.0` for supported port for
 
 ## Data scope and interactions
 
-Reporting period: **1–30 September 2026**. Data available through **6 October 2026**. Underlying source as supplied: **DLD-registered sales**. Provenance: the owner's summary in this conversation; no original DLD dataset or source screenshots have been ingested or independently verified.
+Reporting period: **1–30 September 2026**. Data available through **6 October 2026**. Underlying source as supplied: **DLD-registered transactions**. Provenance: the owner's summary in this conversation; no original DLD dataset or source screenshots have been ingested or independently verified.
 
-Select a location or click an area row to inspect the available metrics. Switch the chart between transaction count and sales value, and switch area rankings between the supplied top 10 by volume and top 5 by value. Reset returns to the Dubai-wide overview.
+Select **Sales** or **Rentals**, then a location, or click an area row to inspect the available metrics. Rental chart tabs compare transaction counts or rental values across the supplied areas; sales retain the September overview. Switch the chart between transaction count and sales value, and switch area rankings between the supplied top 10 by volume and top 5 by value. Reset returns to the Dubai-wide overview.
 
 - **Missing is not zero:** absent area values, counts, medians, and MoM comparisons remain null and display as `—`. Area medians are never estimated from Dubai-wide medians.
 - **Median is not average:** AED 1.325m is the median property price; AED 1,671 is the median price per square foot. The supplied 9.6% median-price increase is kept distinct from the unavailable median-per-sqft comparison.
-- **Percentages are not exact counts:** off-plan (65.5%), ready (34.5%), and apartment (78%) shares are displayed as percentages. Exact counts are not reconstructed from rounded shares.
+- **Percentages are not exact counts:** off-plan (65.5%) and ready (34.5%) shares are displayed as percentages. Exact counts are not reconstructed from rounded shares.
 - **History is unavailable:** only September absolute metrics were supplied. The chart displays a single September column and reports supplied MoM changes separately. No August totals are inferred, and no fictional historical series or YoY comparison remains.
 - **Area coverage is partial:** rank fields preserve the supplied volume and value lists. Palm Jumeirah's 72 transactions are supplemental and do not imply an 11th-place volume rank. Al Yufrah 1 has a supplied sales value but no transaction count. Do not sum partial area rows as if they represent the entire market.
-- **Benchmarks have an explicit scope:** off-plan/ready, property shares, and yields are labeled Dubai-wide and do not change with an area selection. The 22% share of other property types is explicitly a derived remainder, not a villas/townhouses share.
-- **Unsupported filters are disabled:** developer, property-type, and transaction-category segment datasets were not supplied. Developer rankings are unavailable rather than fictional.
+- **Benchmarks have an explicit scope:** off-plan/ready, property shares, and yields are labeled Dubai-wide and do not change with an area selection. The sales property split now shows the supplied counts: apartments 8,952 (78%), villas/townhouses 972 (8.5%), land 695 (6.1%), commercial/other 856 (7.5%). Counts sum to 11,475; reported percentages total 100.1% because of rounding. Bars use counts, and labels retain the reported percentages.
+- **Unsupported filters are disabled:** developer and area × property-type × transaction-type datasets were not supplied. Property types are shown as Dubai-wide sales context rather than filtering area rows; separate penthouse and rental property-type statistics are unavailable. Developer rankings are unavailable rather than fictional.
+- **Rentals are a partial area leaderboard:** ten supplied area transaction counts and five rental values. Business Bay leads with 4,044 rental transactions and AED 387.6m. No Dubai-wide rental total is calculated from the partial list. Rental values and counts remain separate from sales, and sales medians/off-plan shares are hidden in the rental view. Switching transaction type preserves a shared selected area, otherwise returns to All Dubai.
+- **Additional sales values:** Jebel Ali 1 AED 1.26bn, Wadi Al Safa 5 AED 859.3m, Al Hebiah 1 AED 826.5m, and Al Khairan 1 AED 1.10bn now populate area rows and exports. Original supplemental Palm Jumeirah and Al Yufrah 1 figures remain available.
 - **Yields are approximate and gross:** approximately 5% for apartments and 4.9% for villas; no townhouse, net, or area-specific yield is inferred.
 
-Monthly report exports the supplied metrics as CSV with reporting dates, units, source, and provenance. An area-only export excludes city-wide metrics and omits missing values. The newsletter form is still a session-local preview; it neither stores email addresses nor sends email.
+Monthly report exports the supplied metrics as CSV with reporting dates, units, source, and provenance. Exports follow the active transaction type. An area-only export excludes city-wide metrics and omits missing values. All-Dubai rental exports contain individual supplied area rows, not a city total; sales exports include the supplied property counts and shares. The newsletter form is still a session-local preview; it neither stores email addresses nor sends email.
 
 This is an initial static supplied dataset. Self-service monthly updates, source screenshot auditing, revision history, and publication without code deployment remain future work.
 
